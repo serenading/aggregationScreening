@@ -9,7 +9,8 @@ function [strainFileList] = getFileList(strains)
 % paths for 40 worm or 5 worm recordings. 
 
 % load metadata
-[~,~,metadata] = xlsread('/Volumes/behavgenom_archive$/Serena/AggregationScreening/aggregation_data.xlsx','A2:J2213');
+[~,~,metadata] = xlsread('/Volumes/behavgenom$/Serena/aggregationScreeningDocs/aggregation_metadata.xlsx');
+metadata = metadata(2:end,:); % remove the first row with labels
 metaStrainList = {metadata{1:end,7}};
 
 % preallocate cell arrays to hold path names

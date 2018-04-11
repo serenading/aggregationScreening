@@ -4,8 +4,17 @@ close all
 %% script extracts perimeter and area multi-worm blob features for each of the strains of interest, normalise them against corresponding single worm blob feature within each replicate, and plots a histogram for each strain
 
 %% set parameters
-%strains = {'DA609','N2','CB4856'};
-strains = {'DA609','N2','CB4856','CX11314','DL238','ED3017','EG4725','JT11398','JU258','JU775','LKC34','MY16','MY23'};
+% load('strainsList/controls.mat')
+load('strainsList/divergent.mat')
+saveResults = true;
+
+exportOptions = struct('Format','eps2',...
+    'Color','rgb',...
+    'Width',30,...
+    'Resolution',300,...
+    'FontMode','fixed',...
+    'FontSize',25,...
+    'LineWidth',3);
 
 % get list of file names for each strain
 [strainFileList] = getFileList(strains);
@@ -69,13 +78,38 @@ for strainCtr = 1:length(strains)
     
 end
 
-% format histogram
+% format and export histogram
 set(0,'CurrentFigure',perimeterFig)
 set(gca, 'YScale', 'log')
-legend(strains)
+legend(strains,'Location','eastoutside')
+title('cluster perimeter')
+xlabel('relative perimeter')
+ylabel('probability')
+figurename = 'figures/perimeter_log';
+if saveResults
+    exportfig(perimeterFig,[figurename '.eps'],exportOptions)
+    %eps2pdf([figurename '.eps'])
+    %system(['epstopdf ' figurename '.eps']);
+    %system(['rm ' figurename '.eps']);
+end
+
 set(0,'CurrentFigure',areaFig)
 set(gca, 'YScale', 'log')
-legend(strains)
+legend(strains,'Location','eastoutside')
+title('cluster area')
+xlabel('relative area')
+ylabel('probability')
+figurename = 'figures/area_log';
+if saveResults
+    exportfig(areaFig,[figurename '.eps'],exportOptions)
+    %eps2pdf([figurename '.eps'])
+    %system(['epstopdf ' figurename '.eps']);
+    %system(['rm ' figurename '.eps']);
+end
 
 % save data
-save('Results/areaPerimeter.mat','perimeterNorm','areaNorm')
+if saveResults
+    save('results/areaPerimeter.mat','perimeterNorm','areaNorm')
+    savefig(perimeterFig,'figures/perimeter.fig')
+    savefig(areaFig,'figures/area.fig')
+end
