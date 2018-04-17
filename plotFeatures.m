@@ -5,11 +5,11 @@ close all
 
 %% set parameters
 % set analysis parameters
-strainSet = 'controls'; % 'controls','divergent','all'
-feature = 'speed'; % specify feature as string
+strainSet = 'divergent'; % 'controls','divergent','all'
+feature = 'area'; % specify feature as string
 clusterArea = 4;
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
-saveResults = false;
+saveResults = true;
 maxNumReplicates = 100;
 
 % set plotting parameters
@@ -61,56 +61,54 @@ for strainCtr = 1:length(strains)
     for fileCtr = 1:length(fileInd)
         
         %% load data
-        filename = filenames{fileCtr}
-        if ~contains (filename, 'Agg_16.1')
-            trajData = h5read(filename,'/trajectories_data');
-            blobFeats = h5read(filename,'/blob_features');
-            frameRate = double(h5readatt(filename,'/plate_worms','expected_fps'));
-            % features = h5read(strrep(filename,'skeletons','featuresN'),'/features_timeseries/');
-            
-            %% filter data
-            % find single, multi, and cluster worms
-            [singleWormLogInd,multiWormLogInd,clusterLogInd] = findClusters(trajData,blobFeats,clusterArea);
-            % generate logical index for phase restriction (cuts out the first 15 min of each 45 min video)
-            if phaseRestrict
-                frameLogInd = trajData.frame_number>frameRate*60*15;
-                singleWormLogInd = singleWormLogInd & frameLogInd;
-                multiWormLogInd = multiWormLogInd & frameLogInd;
-                clusterLogInd = clusterLogInd & frameLogInd;
-            end
-            % filter out manually labeled bad entries
-            if isfield(trajData,'worm_label')
-                singleWormLogInd = singleWormLogInd & trajData.worm_label~=3;
-                multiWormLogInd = multiWormLogInd & trajData.worm_label~=3;
-                clusterLogInd = clusterLogInd & trajData.worm_label~=3;
-            end
-            % filter out any blobs that do not persist for more than 1 second
-            tempBlobLogInd = findTempBlobs(trajData,blobFeats,frameRate);
-            singleWormLogInd = singleWormLogInd & ~tempBlobLogInd;
-            multiWormLogInd = multiWormLogInd & ~tempBlobLogInd;
-            clusterLogInd = clusterLogInd & ~tempBlobLogInd;
-            
-            %% analyse features
-            % insert function to calculate features if absent
-            if strcmp(feature,'speed')
-                blobFeats.speed = calculateBlobSpeed(trajData, blobFeats,frameRate);
-            end
-            % read features
-            sw_feature.(strains{strainCtr}){fileCtr} = blobFeats.(feature)(singleWormLogInd);
-            mw_feature.(strains{strainCtr}){fileCtr} = blobFeats.(feature)(multiWormLogInd);
-            cluster_feature.(strains{strainCtr}){fileCtr} = blobFeats.(feature)(clusterLogInd);
-            % normalise area and perimeter from this movie with sw features from this movie; store value for threshold box plot later
-            mw_featureNorm.(strains{strainCtr}){fileCtr} = mw_feature.(strains{strainCtr}){fileCtr}/nanmedian(sw_feature.(strains{strainCtr}){fileCtr});
-            cluster_featureNorm.(strains{strainCtr}){fileCtr} = cluster_feature.(strains{strainCtr}){fileCtr}/nanmedian(sw_feature.(strains{strainCtr}){fileCtr});
-            % update strain n number for figure legend
-            legends{strainCtr} = [strains{strainCtr} ', n=' num2str(length(mw_featureNorm.(strains{strainCtr})))];
-            
-            %% plot individual experiments
-            set(0,'CurrentFigure',mw_featureFig)
-            histogram(mw_featureNorm.(strains{strainCtr}){fileCtr},'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:))
-            set(0,'CurrentFigure',cluster_featureFig)
-            histogram(cluster_featureNorm.(strains{strainCtr}){fileCtr},'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:))
+        filename = filenames{fileInd(fileCtr)}
+        trajData = h5read(filename,'/trajectories_data');
+        blobFeats = h5read(filename,'/blob_features');
+        frameRate = double(h5readatt(filename,'/plate_worms','expected_fps'));
+        % features = h5read(strrep(filename,'skeletons','featuresN'),'/features_timeseries/');
+        
+        %% filter data
+        % find single, multi, and cluster worms
+        [singleWormLogInd,multiWormLogInd,clusterLogInd] = findClusters(trajData,blobFeats,clusterArea);
+        % generate logical index for phase restriction (cuts out the first 15 min of each 45 min video)
+        if phaseRestrict
+            frameLogInd = trajData.frame_number>frameRate*60*15;
+            singleWormLogInd = singleWormLogInd & frameLogInd;
+            multiWormLogInd = multiWormLogInd & frameLogInd;
+            clusterLogInd = clusterLogInd & frameLogInd;
         end
+        % filter out manually labeled bad entries
+        if isfield(trajData,'worm_label')
+            singleWormLogInd = singleWormLogInd & trajData.worm_label~=3;
+            multiWormLogInd = multiWormLogInd & trajData.worm_label~=3;
+            clusterLogInd = clusterLogInd & trajData.worm_label~=3;
+        end
+        % filter out any blobs that do not persist for more than 1 second
+        tempBlobLogInd = findTempBlobs(trajData,blobFeats,frameRate);
+        singleWormLogInd = singleWormLogInd & ~tempBlobLogInd;
+        multiWormLogInd = multiWormLogInd & ~tempBlobLogInd;
+        clusterLogInd = clusterLogInd & ~tempBlobLogInd;
+        
+        %% analyse features
+        % insert function to calculate features if absent
+        if strcmp(feature,'speed')
+            blobFeats.speed = calculateBlobSpeed(trajData, blobFeats,frameRate);
+        end
+        % read features
+        sw_feature.(strains{strainCtr}){fileCtr} = blobFeats.(feature)(singleWormLogInd);
+        mw_feature.(strains{strainCtr}){fileCtr} = blobFeats.(feature)(multiWormLogInd);
+        cluster_feature.(strains{strainCtr}){fileCtr} = blobFeats.(feature)(clusterLogInd);
+        % normalise area and perimeter from this movie with sw features from this movie; store value for threshold box plot later
+        mw_featureNorm.(strains{strainCtr}){fileCtr} = mw_feature.(strains{strainCtr}){fileCtr}/nanmedian(sw_feature.(strains{strainCtr}){fileCtr});
+        cluster_featureNorm.(strains{strainCtr}){fileCtr} = cluster_feature.(strains{strainCtr}){fileCtr}/nanmedian(sw_feature.(strains{strainCtr}){fileCtr});
+        % update strain n number for figure legend
+        legends{strainCtr} = [strains{strainCtr} ', n=' num2str(length(mw_featureNorm.(strains{strainCtr})))];
+        
+        %% plot individual experiments
+        set(0,'CurrentFigure',mw_featureFig)
+        histogram(mw_featureNorm.(strains{strainCtr}){fileCtr},'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:))
+        set(0,'CurrentFigure',cluster_featureFig)
+        histogram(cluster_featureNorm.(strains{strainCtr}){fileCtr},'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:))
     end
     
     %% combine the replicates and plot
