@@ -55,4 +55,4 @@ for fileCtr = 1:length(metaNameList)
 end
 
 %% save the list of problematic file names
-dlmcell('problematicStrainCodes.txt',problemCodeNames);
+dlmcell('strainList/problematicStrainCodes.txt',problemCodeNames);

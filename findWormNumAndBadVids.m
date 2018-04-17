@@ -5,7 +5,7 @@ clear
 
 %% load files
 [~,~,metadata] = xlsread('/Volumes/behavgenom$/Serena/aggregationScreeningDocs/aggregation_metadata.xlsx');
-[~,~,metametadata] = xlsread('/Volumes/behavgenom$/Serena/aggregationScreeningDocs/aggregation_metametadata.xlsx','A1:W2180');
+[~,~,metametadata] = xlsread('/Volumes/behavgenom$/Serena/aggregationScreeningDocs/aggregation_metametadata.xlsx','A1:W2176');
 
 % reformat data files
 metadata = metadata(2:end,:); % remove the row with column labels
@@ -73,4 +73,4 @@ metadata = vertcat(metadataLabel,metadata);
 
 %% export updated metadata file and save extraFiles as a text document
 %dlmcell('metadata.txt',metadata)
-%dlmcell('extraFilesList.txt',extraFiles)
+%dlmcell('strainList/extraFilesList.txt',extraFiles)
