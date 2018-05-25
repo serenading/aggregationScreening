@@ -9,7 +9,7 @@ load('strainsList/all.mat')
 strainWormNum = cell(0,3); % create empty cell to hold wormNum information
 
 %% go through each strain
-for strainCtr = 160:length(strains)
+for strainCtr = 1:length(strains)
     filenames = vertcat(strainFileList.([strains{strainCtr} 'List_40']), strainFileList.([strains{strainCtr} 'List_5']));
     %% go through each recording
     for fileCtr = 1:length(filenames)

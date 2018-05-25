@@ -10,6 +10,8 @@ clear
 % reformat data files
 metadata = metadata(2:end,:); % remove the row with column labels
 
+addpath('auxiliary/')
+
 %% go through each row of the metadata and metametadata file to unique generate session number
 
 metaFileID = cell(size(metadata,1),1);

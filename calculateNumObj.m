@@ -19,6 +19,8 @@ exportOptions = struct('Format','eps2',...
     'FontSize',25,...
     'LineWidth',3);
 
+addpath('auxiliary/')
+
 % load the strain names included in the specified strainSet
 load(['strainsList/' strainSet '.mat'])
 % get list of file names for each strain

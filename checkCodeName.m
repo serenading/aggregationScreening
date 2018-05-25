@@ -13,6 +13,8 @@ for codeCtr = 1:length(metaCodeList) % convert all numeric strain codes to strin
     end
 end
 
+addpath('auxiliary/')
+
 %% load strain code information
 % load code reference
 [~,~,strainCodeRefs] = xlsread('/Volumes/behavgenom_archive$/Serena/AggregationScreening/codes_CeNDR.xlsx','B1:B202');

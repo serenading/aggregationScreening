@@ -1,10 +1,10 @@
- function [strainFileList,forthRepNums,fiveRepNums] = getFileList(strains)
+function [strainFileList,forthRepNums,fiveRepNums] = getFileList(strains)
 
 %% function takes a list of desired strain names and generates a struct containing lists of analysis files
 
-%% INPUT: strains: 
+%% INPUT: strains:
 % cell array containing separate strings for each of the desired strain i.e. strains = {'N2','DA609','CB4856'};
-%% OUTPUT: 
+%% OUTPUT:
 % strainFileList: a struct containing two fields for each strain,
 % with each field containing a cell array listing all the relevant file
 % paths for 40 worm or 5 worm recordings.

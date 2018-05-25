@@ -6,7 +6,7 @@ close all
 %% set parameters
 % set analysis parameters
 strainSet = 'divergent'; % 'controls','divergent','all'
-feature = 'area'; % specify feature as string
+feature = 'solidity'; % specify feature as string
 clusterArea = 4;
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
 saveResults = true;
@@ -33,6 +33,7 @@ exportOptions = struct('Format','eps2',...
     'LineWidth',3);
 
 %% prep work
+addpath('auxiliary/')
 % load the strain names included in the specified strainSet
 load(['strainsList/' strainSet '.mat'])
 % get list of file names for each strain
