@@ -10,7 +10,7 @@ feature = 'perdurance'; % specify feature as string. 'area','compactness','perim
 clusterArea = 4; % 4 by default
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
 saveResults = true;
-maxNumReplicates = 10;
+maxNumReplicates = 100;
 applySwNormalisation = true; % by default, normalise mw and cluster data against sw from the same movie
 
 % set plotting parameters
@@ -27,6 +27,7 @@ elseif strcmp(feature,'area') | strcmp(feature,'perimeter')
 elseif strcmp(feature,'perdurance')
     yscale = 'log'; 
     applySwNormalisation = false;
+    histogramXLim = [0 15000];
     unit = 'frames elapsed (at 25fps)';
 end
 
@@ -48,14 +49,19 @@ load(['strainsList/' strainSet '.mat'])
 % generate colormap for plotting each strain
 colorMap = distinguishable_colors(length(strains));
 % create empty figures
-if ~applySwNormalisation
-    sw_featureFig = figure; hold on
-    sw_featurePooledFig = figure; hold on
-end
 mw_featureFig = figure; hold on
 mw_featurePooledFig = figure; hold on
 cluster_featureFig = figure; hold on
 cluster_featurePooledFig = figure; hold on
+if ~applySwNormalisation
+    sw_featureFig = figure; hold on
+    sw_featurePooledFig = figure; hold on
+end
+if strcmp(feature,'perdurance')
+    swPerduranceSurvivalCurveFig = figure; hold on
+    mwPerduranceSurvivalCurveFig = figure; hold on
+    clusterPerduranceSurvivalCurveFig = figure; hold on
+end
 % create legend variable to hold strain name and experiment n numbers
 legends = cell(size(strains));
 
@@ -68,6 +74,11 @@ for strainCtr = 1:length(strains)
         fileInd = datasample(1:length(filenames),maxNumReplicates,'Replace',false);
     else
         fileInd = 1:length(filenames);
+    end
+    if strcmp(feature,'perdurance')
+        sw_frameDist = [];
+        mw_frameDist = [];
+        cluster_frameDist = [];
     end
     
     %% go through each recording
@@ -115,8 +126,9 @@ for strainCtr = 1:length(strains)
         cluster_feature.(strain){fileCtr} = blobFeats.(feature)(clusterLogInd);
         % further feature calculation if necessary
         if strcmp(feature,'perdurance')
-            [sw_feature.(strain){fileCtr},mw_feature.(strain){fileCtr},cluster_feature.(strain){fileCtr}] = ...
-                calculatePerdurance(sw_feature,mw_feature,cluster_feature,strain,fileCtr);
+            [sw_feature.(strain){fileCtr},mw_feature.(strain){fileCtr},cluster_feature.(strain){fileCtr},...
+                sw_frameDist,mw_frameDist,cluster_frameDist] = calculatePerdurance...
+                (blobFeats,trajData,singleWormLogInd,multiWormLogInd,clusterLogInd,sw_frameDist,mw_frameDist,cluster_frameDist);
         end
         % normalise features from this movie with sw features from this movie (if appropriate); store value for threshold box plot later
         if ~applySwNormalisation % just rename variable for consistency even if no normalisation is applied
@@ -158,9 +170,14 @@ for strainCtr = 1:length(strains)
         set(0,'CurrentFigure',sw_featurePooledFig)
         histogram(sw_featureNormPooled.(strain),'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:))
     end
+    if strcmp(feature,'perdurance')
+        swFrameDist.(strain) = sw_frameDist;
+        mwFrameDist.(strain) = mw_frameDist;
+        clusterFrameDist.(strain) = cluster_frameDist;
+    end
 end
 
-%% format and export histograms
+%% format and export histograms (and other feature-specific plots)
 
 % mw plot
 set(0,'CurrentFigure',mw_featureFig)
@@ -279,7 +296,7 @@ if ~applySwNormalisation
     set(gca, 'YScale', yscale)
     legend(legends,'Location','eastoutside')
     title(['single worm ' feature])
-    xlabel(feature)
+    xlabel([feature ' ' unit])
     if strcmp(histogramNormalisation,'pdf')
         ylabel('probability')
     elseif strcmp(histogramNormalisation,'count')
@@ -291,5 +308,73 @@ if ~applySwNormalisation
     figurename = ['figures/' feature '_' strainSet '_sw_Pooled_' yscale];
     if saveResults
         exportfig(sw_featurePooledFig,[figurename '.eps'],exportOptions)
+    end
+end
+
+% perdurance cumulative survival figures
+if strcmp(feature,'perdurance')
+    % go through each strain to plot
+    for strainCtr = 1:length(strains)
+        strain = strains{strainCtr};
+        
+        set(0,'CurrentFigure',swPerduranceSurvivalCurveFig)
+        [ecdfy,ecdfx] = ecdf(swFrameDist.(strain));
+        plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
+        %ecdf(swFrameDist.(strain),'function','survivor','alpha',0.01,'bounds','on')
+        hold on
+        
+        set(0,'CurrentFigure',mwPerduranceSurvivalCurveFig)
+        [ecdfy,ecdfx] = ecdf(mwFrameDist.(strain));
+        plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
+        %ecdf(mwFrameDist.(strain),'function','survivor','alpha',0.01,'bounds','on')
+        hold on
+        
+        set(0,'CurrentFigure',clusterPerduranceSurvivalCurveFig)
+        [ecdfy,ecdfx] = ecdf(clusterFrameDist.(strain));
+        plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
+        %ecdf(clusterFrameDist.(strain),'function','survivor','alpha',0.01,'bounds','on')
+        hold on
+    end
+    
+    % format survival plots
+    set(0,'CurrentFigure',swPerduranceSurvivalCurveFig)
+    set(gca, 'YScale', yscale)
+    title(['single worm ' feature ' survival'])
+    xlabel('frames elapsed (at 25fps)')
+    ylabel('remaining proportion')
+    xlim(histogramXLim)
+    legend(legends,'Location','eastoutside')
+    figurename = ['figures/' feature '_' strainSet '_swSurvival_'];
+    if saveResults
+        exportfig(swPerduranceSurvivalCurveFig,[figurename '.eps'],exportOptions)
+    end
+    
+    set(0,'CurrentFigure',mwPerduranceSurvivalCurveFig)
+    set(gca, 'YScale', yscale)
+    title(['multi worm ' feature ' survival'])
+    xlabel('frames elapsed (at 25fps)')
+    ylabel('remaining proportion')
+    xlim([0 7500])
+    legend(legends,'Location','eastoutside')
+    figurename = ['figures/' feature '_' strainSet '_mwSurvival_'];
+    if saveResults
+        exportfig(mwPerduranceSurvivalCurveFig,[figurename '.eps'],exportOptions)
+    end
+    
+    set(0,'CurrentFigure',clusterPerduranceSurvivalCurveFig)
+    set(gca, 'YScale', yscale)
+    title(['cluster ' feature ' survival'])
+    xlabel('frames elapsed (at 25fps)')
+    ylabel('remaining proportion')
+    xlim([0 7500])
+    legend(legends,'Location','eastoutside')
+    figurename = ['figures/' feature '_' strainSet '_clusterSurvival_'];
+    if saveResults
+        exportfig(clusterPerduranceSurvivalCurveFig,[figurename '.eps'],exportOptions)
+    end
+    
+    % save variable
+    if saveResults
+        save('results/perduranceSurvival.mat','swFrameDist','mwFrameDist','clusterFrameDist')
     end
 end
