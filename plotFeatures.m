@@ -6,22 +6,28 @@ close all
 %% set parameters
 % set analysis parameters
 strainSet = 'divergent'; % 'controls','divergent','all'
-feature = 'perdurance'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
+feature = 'clusterSize'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
+saveResults = true;
+maxNumReplicates = 60;
+
+% set default parameters
 clusterArea = 4; % 4 by default
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
-saveResults = true;
-maxNumReplicates = 100;
 applySwNormalisation = true; % by default, normalise mw and cluster data against sw from the same movie
-
-% set plotting parameters
 histogramNormalisation = 'pdf'; % 'pdf' by default. 'count' an option
 yscale = 'linear'; % linear by default, 'log' an option
 unit = ''; % nothing by default
 
 % set feature-specific parameters
 if strcmp(feature,'speed')
-    histogramXLim = [0 5];
-    unit = 'microns/s';
+    applySwNormalisation = false;
+    if applySwNormalisation
+        histogramXLim = [0 5];
+    else
+        histogramXLim = [0 100];
+        yscale = 'log';
+    end
+    unit = '(microns/s)';
 elseif strcmp(feature,'area') | strcmp(feature,'perimeter')
     yscale = 'log';
 elseif strcmp(feature,'perdurance')
@@ -29,6 +35,9 @@ elseif strcmp(feature,'perdurance')
     applySwNormalisation = false;
     histogramXLim = [0 15000];
     unit = 'frames elapsed (at 25fps)';
+elseif strcmp(feature,'clusterSize')
+    numFrames2Sample = 1000;
+    histogramXLim = [0 20];
 end
 
 % set eps export options
@@ -114,30 +123,40 @@ for strainCtr = 1:length(strains)
         clusterLogInd = clusterLogInd & ~tempBlobLogInd;
         
         %% analyse features
-        % insert function to calculate features if absent
+        % feature calculation stage 1 (some features are calculated here, some below)
         if strcmp(feature,'speed')
             blobFeats.speed = calculateBlobSpeed(trajData, blobFeats,frameRate);
         elseif strcmp(feature,'perdurance')
             blobFeats.perdurance = trajData.worm_index_joined; % load variable, calculate feature later
+        elseif strcmp(feature,'clusterSize')
+            blobFeats.clusterSize = blobFeats.area;
         end
         % read features
         sw_feature.(strain){fileCtr} = blobFeats.(feature)(singleWormLogInd);
         mw_feature.(strain){fileCtr} = blobFeats.(feature)(multiWormLogInd);
         cluster_feature.(strain){fileCtr} = blobFeats.(feature)(clusterLogInd);
-        % further feature calculation if necessary
+        % feature calculation stage 2 (some features are calculated here, some above or below)
         if strcmp(feature,'perdurance')
             [sw_feature.(strain){fileCtr},mw_feature.(strain){fileCtr},cluster_feature.(strain){fileCtr},...
                 sw_frameDist,mw_frameDist,cluster_frameDist] = calculatePerdurance...
                 (blobFeats,trajData,singleWormLogInd,multiWormLogInd,clusterLogInd,sw_frameDist,mw_frameDist,cluster_frameDist);
         end
         % normalise features from this movie with sw features from this movie (if appropriate); store value for threshold box plot later
-        if ~applySwNormalisation % just rename variable for consistency even if no normalisation is applied
+        if applySwNormalisation % normalise using single worm data
+            medianSwFeat = nanmedian(sw_feature.(strain){fileCtr});
+            mw_featureNorm.(strain){fileCtr} = mw_feature.(strain){fileCtr}/medianSwFeat;
+            cluster_featureNorm.(strain){fileCtr} = cluster_feature.(strain){fileCtr}/medianSwFeat;
+            % rename sw_feature variable just for consistency even though script won't use it later
+            sw_featureNorm.(strain){fileCtr} = sw_feature.(strain){fileCtr};
+        else % just rename variable for consistency even if no normalisation is applied
             mw_featureNorm.(strain){fileCtr} = mw_feature.(strain){fileCtr};
             cluster_featureNorm.(strain){fileCtr} = cluster_feature.(strain){fileCtr};
             sw_featureNorm.(strain){fileCtr} = sw_feature.(strain){fileCtr};
-        else % normalise using single worm data
-            mw_featureNorm.(strain){fileCtr} = mw_feature.(strain){fileCtr}/nanmedian(sw_feature.(strain){fileCtr});
-            cluster_featureNorm.(strain){fileCtr} = cluster_feature.(strain){fileCtr}/nanmedian(sw_feature.(strain){fileCtr});
+        end
+        % feature calculation stage 3 (some features are calculated here, some above)
+        if strcmp(feature,'clusterSize')
+            [mw_featureNorm.(strain){fileCtr},cluster_featureNorm.(strain){fileCtr}] = calculateClusterSize...
+                (blobFeats,trajData,frameLogInd,numFrames2Sample,multiWormLogInd,clusterLogInd,medianSwFeat);
         end
         % update strain n number for figure legend
         legends{strainCtr} = [strain ', n=' num2str(length(mw_featureNorm.(strain)))];
@@ -177,6 +196,11 @@ for strainCtr = 1:length(strains)
     end
 end
 
+%% save variables
+if saveResults
+    save(['results/' feature '.mat'],'sw_featureNormPooled','mw_featureNormPooled','cluster_featureNormPooled')
+end
+
 %% format and export histograms (and other feature-specific plots)
 
 % mw plot
@@ -197,7 +221,11 @@ end
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
-figurename = ['figures/' feature '_' strainSet '_mw_' yscale];
+if applySwNormalisation
+    figurename = ['figures/' feature '_' strainSet '_mwNorm_' yscale];
+else
+    figurename = ['figures/' feature '_' strainSet '_mw_' yscale];
+end
 if saveResults
     exportfig(mw_featureFig,[figurename '.eps'],exportOptions)
 end
@@ -220,7 +248,11 @@ end
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
-figurename = ['figures/' feature '_' strainSet '_mw_Pooled_' yscale];
+if applySwNormalisation
+    figurename = ['figures/' feature '_' strainSet '_mwNorm_Pooled_' yscale];
+else
+    figurename = ['figures/' feature '_' strainSet '_mw_Pooled_' yscale];
+end
 if saveResults
     exportfig(mw_featurePooledFig,[figurename '.eps'],exportOptions)
 end
@@ -243,7 +275,11 @@ end
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
-figurename = ['figures/' feature '_' strainSet '_cluster_' yscale];
+if applySwNormalisation
+    figurename = ['figures/' feature '_' strainSet '_clusterNorm_' yscale]
+else
+    figurename = ['figures/' feature '_' strainSet '_cluster_' yscale];
+end
 if saveResults
     exportfig(cluster_featureFig,[figurename '.eps'],exportOptions)
 end
@@ -266,7 +302,11 @@ end
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
-figurename = ['figures/' feature '_' strainSet '_cluster_Pooled_' yscale];
+if applySwNormalisation
+    figurename = ['figures/' feature '_' strainSet '_clusterNorm_Pooled_' yscale];
+else
+    figurename = ['figures/' feature '_' strainSet '_cluster_Pooled_' yscale];
+end
 if saveResults
     exportfig(cluster_featurePooledFig,[figurename '.eps'],exportOptions)
 end
