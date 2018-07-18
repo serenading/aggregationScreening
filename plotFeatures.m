@@ -6,7 +6,7 @@ close all
 %% set parameters
 % set analysis parameters
 strainSet = 'divergent'; % 'controls','divergent','all'
-feature = 'clusterSize'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
+feature = 'area'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
 saveResults = true;
 maxNumReplicates = 60;
 
@@ -35,9 +35,6 @@ elseif strcmp(feature,'perdurance')
     applySwNormalisation = false;
     histogramXLim = [0 15000];
     unit = 'frames elapsed (at 25fps)';
-elseif strcmp(feature,'clusterSize')
-    numFrames2Sample = 1000;
-    histogramXLim = [0 20];
 end
 
 % set eps export options
@@ -128,14 +125,12 @@ for strainCtr = 1:length(strains)
             blobFeats.speed = calculateBlobSpeed(trajData, blobFeats,frameRate);
         elseif strcmp(feature,'perdurance')
             blobFeats.perdurance = trajData.worm_index_joined; % load variable, calculate feature later
-        elseif strcmp(feature,'clusterSize')
-            blobFeats.clusterSize = blobFeats.area;
         end
         % read features
         sw_feature.(strain){fileCtr} = blobFeats.(feature)(singleWormLogInd);
         mw_feature.(strain){fileCtr} = blobFeats.(feature)(multiWormLogInd);
         cluster_feature.(strain){fileCtr} = blobFeats.(feature)(clusterLogInd);
-        % feature calculation stage 2 (some features are calculated here, some above or below)
+        % feature calculation stage 2 (some features are calculated here, some above)
         if strcmp(feature,'perdurance')
             [sw_feature.(strain){fileCtr},mw_feature.(strain){fileCtr},cluster_feature.(strain){fileCtr},...
                 sw_frameDist,mw_frameDist,cluster_frameDist] = calculatePerdurance...
@@ -152,11 +147,6 @@ for strainCtr = 1:length(strains)
             mw_featureNorm.(strain){fileCtr} = mw_feature.(strain){fileCtr};
             cluster_featureNorm.(strain){fileCtr} = cluster_feature.(strain){fileCtr};
             sw_featureNorm.(strain){fileCtr} = sw_feature.(strain){fileCtr};
-        end
-        % feature calculation stage 3 (some features are calculated here, some above)
-        if strcmp(feature,'clusterSize')
-            [mw_featureNorm.(strain){fileCtr},cluster_featureNorm.(strain){fileCtr}] = calculateClusterSize...
-                (blobFeats,trajData,frameLogInd,numFrames2Sample,multiWormLogInd,clusterLogInd,medianSwFeat);
         end
         % update strain n number for figure legend
         legends{strainCtr} = [strain ', n=' num2str(length(mw_featureNorm.(strain)))];
