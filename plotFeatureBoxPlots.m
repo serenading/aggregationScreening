@@ -6,8 +6,8 @@ close all
 %% 2) generates sorted box plots using user-defined metric (i.e. median, 90th percentile)
 
 %% set parameter
-feature = 'perdurance';
-metric = 6; %1 = min, 2 = 10th prc, 3 = 25th prc, 4 = median, 5 = 75th prc, 6 = 90th prc, 7 = max
+feature = 'quirkiness';
+metric = 4; %1 = min, 2 = 10th prc, 3 = 25th prc, 4 = median, 5 = 75th prc, 6 = 90th prc, 7 = max
 saveResults = true;
 export4Mapping = true;
 
@@ -20,6 +20,18 @@ elseif strcmp(feature,'perdurance')
     applySwNormalisation = false; % this feature should not be normalised against single worm
 elseif strcmp(feature,'speed')
     unit = '\mum/s';
+    applySwNormalisation = true;
+elseif strcmp(feature,'compactness')
+    unit = '';
+    applySwNormalisation = true;
+elseif strcmp(feature,'quirkiness')
+    unit = '';
+    applySwNormalisation = true;
+elseif strcmp(feature,'solidity')
+    unit = '';
+    applySwNormalisation = true;
+elseif strcmp(feature,'perimeter')
+    unit = '\mum';
     applySwNormalisation = true;
 end
 
@@ -216,7 +228,11 @@ metricNameYAxis = metricText{metric};
 if metric == 2 | metric == 3 | metric == 5 | metric == 6
     metricNameYAxis = strrep(metricNameYAxis,'_','\_'); % modify ylabel display format so the p isn't lower case
 end
-yLabel = ([metricNameYAxis ' ' feature ' (' unit ')']);
+if strcmp(unit,'')
+    yLabel = ([metricNameYAxis ' ' feature]);
+else
+    yLabel = ([metricNameYAxis ' ' feature ' (' unit ')']);
+end
 % cluster boxplot
 set(0,'CurrentFigure',cluster_boxplotFig)
 boxplot(cluster_boxplotValues,boxplotStrainNames,'GroupOrder',cluster_groupOrder,'PlotStyle','compact','LabelVerbosity','all')

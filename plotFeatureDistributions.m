@@ -5,9 +5,9 @@ close all
 
 %% set parameters
 % set analysis parameters
-strainSet = 'all'; % 'controls','divergent','all'
-feature = 'quirkiness'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
-saveResults = true;
+strainSet = 'divergent'; % 'controls','divergent','all'
+feature = 'compactness'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
+saveResults = false;
 maxNumReplicates = 60;
 
 % set default parameters
