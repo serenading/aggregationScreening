@@ -3,11 +3,12 @@ close all
 
 %% script takes saved features data (i.e. area, speed),
 %% 1) calculates metrics of the features data for cluster, mw, and sw blob categories, and
-%% 2) generates sorted box plots using user-defined metric (i.e. median, 90th percentile)
+%% 2) generates box plots using user-defined metric (i.e. median), sorted by median or 90th percentile values (i.e. median of median, or 90th percentile of median)
 
 %% set parameter
-feature = 'quirkiness';
-metric = 4; %1 = min, 2 = 10th prc, 3 = 25th prc, 4 = median, 5 = 75th prc, 6 = 90th prc, 7 = max
+feature = 'perdurance';
+strainSet = 'divergent'; % 'controls','divergent','all'
+metric = 4; % 4 by default to use mean. %1 = min, 2 = 10th prc, 3 = 25th prc, 4 = median, 5 = 75th prc, 6 = 90th prc, 7 = max
 saveResults = true;
 export4Mapping = true;
 
@@ -16,7 +17,7 @@ if strcmp(feature,'area')
     unit = '\mum^2'; % micron squared
     applySwNormalisation = true;
 elseif strcmp(feature,'perdurance')
-    unit = 'frames elapsed at 25fps';
+    unit = 'time elapsed (s)';
     applySwNormalisation = false; % this feature should not be normalised against single worm
 elseif strcmp(feature,'speed')
     unit = '\mum/s';
@@ -35,15 +36,23 @@ elseif strcmp(feature,'perimeter')
     applySwNormalisation = true;
 end
 
-%% initialise
+%% prep work
 metricText = [{'min'};{'10th_percentile'};{'25th_percentile'};{'median'};{'75th_percentile'};{'90th_percentile'};{'max'}];
-load(['results/' feature '.mat'])
-cluster_boxplotFig = figure;
-mw_boxplotFig = figure;
-sw_boxplotFig = figure;
+addpath('auxiliary/')
+load(['results/' feature '_' strainSet '.mat'])
+
+% create empty figures
+cluster_boxplotFig_sortMedian = figure;
+mw_boxplotFig_sortMedian = figure;
+sw_boxplotFig_sortMedian = figure;
+cluster_boxplotFig_sort90prc = figure;
+mw_boxplotFig_sort90prc = figure;
+sw_boxplotFig_sort90prc = figure;
 if applySwNormalisation
-    clusterNorm_boxplotFig = figure;
-    mwNorm_boxplotFig = figure;
+    clusterNorm_boxplotFig_sortMedian = figure;
+    mwNorm_boxplotFig_sortMedian = figure;
+    clusterNorm_boxplotFig_sort90prc = figure;
+    mwNorm_boxplotFig_sort90prc = figure;
 end
 
 % set eps export options
@@ -57,23 +66,23 @@ exportOptions = struct('Format','eps2',...
 
 %% calculate metric values if necessary (i.e. median, 90th percentile, etc.) for each strain and replicate
 try % calculate metric value only if it doesn't already exist, otherwise just load
-    load(['results/featMetricVals/' featureNameSave '.mat'])
+    load(['results/featMetricVals/' feature '_' strainSet '.mat'])
     % calculate total number of reps for all strains
-    numStrains = numel(fieldnames(cluster_featureNorm));
+    numStrains = numel(fieldnames(cluster_feature));
     totalRepCtr = 0; % initialise total rep counter
     for strainCtr = 1:numStrains
-        strainNames = fieldnames(cluster_featureNorm);
-        numReps = numel(cluster_featureNorm.(strainNames{strainCtr}));
+        strainNames = fieldnames(cluster_feature);
+        numReps = numel(cluster_feature.(strainNames{strainCtr}));
         totalRepCtr = totalRepCtr + numReps; % update total rep counter
     end
 catch 
     % go through each strain
-    numStrains = numel(fieldnames(cluster_featureNorm));
+    numStrains = numel(fieldnames(cluster_feature));
     totalRepCtr = 0; % initialise total rep counter
     for strainCtr = 1:numStrains
-        strainNames = fieldnames(cluster_featureNorm);
+        strainNames = fieldnames(cluster_feature);
         strain = strainNames{strainCtr}; % get strain name
-        numReps = numel(cluster_featureNorm.(strain));
+        numReps = numel(cluster_feature.(strain));
         totalRepCtr = totalRepCtr + numReps; % update total rep counter
         % preallocate variable to hold calculated feature metric values for that strain/rep
         cluster_featVals.(strain) = NaN(numReps,7); % 7 columns to contain [min,10th,25th,50th,75th,90th percentiles,max] values
@@ -85,9 +94,14 @@ catch
         end
         % go through each replicate
         for repCtr = 1:numReps
-            cluster_repFeat = cluster_featureNorm.(strain){repCtr};
-            mw_repFeat = mw_featureNorm.(strain){repCtr};
-            sw_repFeat = sw_featureNorm.(strain){repCtr};
+            cluster_repFeat = cluster_feature.(strain){repCtr};
+            mw_repFeat = mw_feature.(strain){repCtr};
+            sw_repFeat = sw_feature.(strain){repCtr};
+%             if strcmp(feature,'perdurance') % turn frames at 25fps to s
+%                 cluster_repFeat = cluster_repFeat/25;
+%                 mw_repFeat = mw_repFeat/25;
+%                 sw_repFeat = sw_repFeat/25;
+%             end
             % apply swNormalisation as specified
             if applySwNormalisation
                 swMedian = nanmedian(sw_repFeat);
@@ -146,9 +160,10 @@ catch
     end
     % save calculated rep metrics
     if saveResults
-        save(['results/featMetricVals/' feature '.mat'],'cluster_featVals','mw_featVals','sw_featVals');
         if applySwNormalisation
-            save(['results/featMetricVals/' feature 'Norm.mat'],'clusterNorm_featVals','mwNorm_featVals');
+        save(['results/featMetricVals/' feature '_' strainSet '.mat'],'cluster_featVals','mw_featVals','sw_featVals','clusterNorm_featVals','mwNorm_featVals');
+        else
+        save(['results/featMetricVals/' feature '_' strainSet '.mat'],'cluster_featVals','mw_featVals','sw_featVals');
         end
     end
 end
@@ -158,29 +173,29 @@ end
 rowCtr = 1;
 boxplotStrainNames = cell(totalRepCtr,1); % grouping variable
 cluster_boxplotValues = NaN(totalRepCtr,1); % values to plot
-cluster_boxPlotSort = cell(numStrains,2); % variable to sort grouping order by
+cluster_boxPlotSort = cell(numStrains,3); % variable to sort grouping order by
 mw_boxplotValues = NaN(totalRepCtr,1);
-mw_boxPlotSort = cell(numStrains,2);
+mw_boxPlotSort = cell(numStrains,3);
 sw_boxplotValues = NaN(totalRepCtr,1);
-sw_boxPlotSort = cell(numStrains,2);
+sw_boxPlotSort = cell(numStrains,3);
 if applySwNormalisation
     clusterNorm_boxplotValues = NaN(totalRepCtr,1);
-    clusterNorm_boxPlotSort = cell(numStrains,2);
+    clusterNorm_boxPlotSort = cell(numStrains,3);
     mwNorm_boxplotValues = NaN(totalRepCtr,1);
-    mwNorm_boxPlotSort = cell(numStrains,2);
+    mwNorm_boxPlotSort = cell(numStrains,3);
 end
 
 % fill boxplot values and labels
 for strainCtr = 1:numel(strainNames)
     strain = strainNames{strainCtr};
-    numReps = numel(cluster_featureNorm.(strain));
+    numReps = numel(cluster_feature.(strain));
     % get appropriate user-defined metric values
     cluster_featMetricVals = cluster_featVals.(strain)(:,metric);
     mw_featMetricVals = mw_featVals.(strain)(:,metric);
     sw_featMetricVals = sw_featVals.(strain)(:,metric);
     if applySwNormalisation
         clusterNorm_featMetricVals = clusterNorm_featVals.(strain)(:,metric);
-        mwNorm_featMetricVals = mw_featVals.(strain)(:,metric);
+        mwNorm_featMetricVals = mwNorm_featVals.(strain)(:,metric);
     end
     % populate boxplot variables
     boxplotStrainNames(rowCtr:rowCtr+numReps-1) = {strain};
@@ -191,35 +206,54 @@ for strainCtr = 1:numel(strainNames)
         clusterNorm_boxplotValues(rowCtr:rowCtr+numReps-1) = clusterNorm_featMetricVals;
         mwNorm_boxplotValues(rowCtr:rowCtr+numReps-1) = mwNorm_featMetricVals;
     end
-    % get boxplot median for sorting
+    % get boxplot median and 90th percentile for sorting
     cluster_boxPlotSort{strainCtr,1} = strain;
     cluster_boxPlotSort{strainCtr,2} = nanmedian(cluster_featMetricVals); % get the median of the feature
+    cluster_boxPlotSort{strainCtr,3} = prctile(cluster_featMetricVals,90); % get the 90th percentile of the feature
     mw_boxPlotSort{strainCtr,1} = strain;
     mw_boxPlotSort{strainCtr,2} = nanmedian(mw_featMetricVals); % get the median of the feature
+    mw_boxPlotSort{strainCtr,3} = prctile(mw_featMetricVals,90); % get the 90th percentile of the feature
     sw_boxPlotSort{strainCtr,1} = strain;
     sw_boxPlotSort{strainCtr,2} = nanmedian(sw_featMetricVals); % get the median of the feature
+    sw_boxPlotSort{strainCtr,3} = prctile(sw_featMetricVals,90); % get the 90th percentile of the feature
     if applySwNormalisation
         clusterNorm_boxPlotSort{strainCtr,1} = strain;
         clusterNorm_boxPlotSort{strainCtr,2} = nanmedian(clusterNorm_featMetricVals); % get the median of the feature
+        clusterNorm_boxPlotSort{strainCtr,3} = prctile(clusterNorm_featMetricVals,90); % get the 90th percentile of the feature
         mwNorm_boxPlotSort{strainCtr,1} = strain;
         mwNorm_boxPlotSort{strainCtr,2} = nanmedian(mwNorm_featMetricVals); % get the median of the feature
+        mwNorm_boxPlotSort{strainCtr,3} = prctile(mwNorm_featMetricVals,90); % get the 90th percentile of the feature
     end
     % update row counter
     rowCtr = rowCtr + numReps;
 end
 
-% sort strain order based on boxplot median values
+% sort strain order based on boxplot median or 90th percentile values
+% by median
 cluster_boxPlotSort = sortrows(cluster_boxPlotSort,2);
 mw_boxPlotSort = sortrows(mw_boxPlotSort,2);
 sw_boxPlotSort = sortrows(sw_boxPlotSort,2);
-cluster_groupOrder = cluster_boxPlotSort(:,1);
-mw_groupOrder = mw_boxPlotSort(:,1);
-sw_groupOrder = sw_boxPlotSort(:,1);
+cluster_groupOrder_median = cluster_boxPlotSort(:,1);
+mw_groupOrder_median = mw_boxPlotSort(:,1);
+sw_groupOrder_median = sw_boxPlotSort(:,1);
 if applySwNormalisation
     clusterNorm_boxPlotSort = sortrows(clusterNorm_boxPlotSort,2);
     mwNorm_boxPlotSort = sortrows(mwNorm_boxPlotSort,2);
-    clusterNorm_groupOrder = clusterNorm_boxPlotSort(:,1);
-    mwNorm_groupOrder = mwNorm_boxPlotSort(:,1);
+    clusterNorm_groupOrder_median = clusterNorm_boxPlotSort(:,1);
+    mwNorm_groupOrder_median = mwNorm_boxPlotSort(:,1);
+end
+% by 90th percentile
+cluster_boxPlotSort = sortrows(cluster_boxPlotSort,3);
+mw_boxPlotSort = sortrows(mw_boxPlotSort,3);
+sw_boxPlotSort = sortrows(sw_boxPlotSort,3);
+cluster_groupOrder_90prc = cluster_boxPlotSort(:,1);
+mw_groupOrder_90prc = mw_boxPlotSort(:,1);
+sw_groupOrder_90prc = sw_boxPlotSort(:,1);
+if applySwNormalisation
+    clusterNorm_boxPlotSort = sortrows(clusterNorm_boxPlotSort,3);
+    mwNorm_boxPlotSort = sortrows(mwNorm_boxPlotSort,3);
+    clusterNorm_groupOrder_90prc = clusterNorm_boxPlotSort(:,1);
+    mwNorm_groupOrder_90prc = mwNorm_boxPlotSort(:,1);
 end
 
 % plot and format
@@ -233,50 +267,94 @@ if strcmp(unit,'')
 else
     yLabel = ([metricNameYAxis ' ' feature ' (' unit ')']);
 end
+
+% boxplots sorted by median
 % cluster boxplot
-set(0,'CurrentFigure',cluster_boxplotFig)
-boxplot(cluster_boxplotValues,boxplotStrainNames,'GroupOrder',cluster_groupOrder,'PlotStyle','compact','LabelVerbosity','all')
-set(0,'CurrentFigure',cluster_boxplotFig)
+set(0,'CurrentFigure',cluster_boxplotFig_sortMedian)
+boxplot(cluster_boxplotValues,boxplotStrainNames,'GroupOrder',cluster_groupOrder_median,'PlotStyle','compact','LabelVerbosity','all')
+set(0,'CurrentFigure',cluster_boxplotFig_sortMedian)
 xlabel('stains')
 ylabel(['cluster ' yLabel])
 % mw boxplot
-set(0,'CurrentFigure',mw_boxplotFig)
-boxplot(mw_boxplotValues,boxplotStrainNames,'GroupOrder',mw_groupOrder,'PlotStyle','compact','LabelVerbosity','all')
+set(0,'CurrentFigure',mw_boxplotFig_sortMedian)
+boxplot(mw_boxplotValues,boxplotStrainNames,'GroupOrder',mw_groupOrder_median,'PlotStyle','compact','LabelVerbosity','all')
 xlabel('stains')
 ylabel(['multiworm ' yLabel])
 % sw boxplot
-set(0,'CurrentFigure',sw_boxplotFig)
-boxplot(sw_boxplotValues,boxplotStrainNames,'GroupOrder',sw_groupOrder,'PlotStyle','compact','LabelVerbosity','all')
+set(0,'CurrentFigure',sw_boxplotFig_sortMedian)
+boxplot(sw_boxplotValues,boxplotStrainNames,'GroupOrder',sw_groupOrder_median,'PlotStyle','compact','LabelVerbosity','all')
 xlabel('stains')
 ylabel(['singleworm ' yLabel])
 if applySwNormalisation
     yLabel = (['normalised ' feature ' (' metricNameYAxis ')']);
     % clusterNorm boxplot
-    set(0,'CurrentFigure',clusterNorm_boxplotFig)
-    boxplot(clusterNorm_boxplotValues,boxplotStrainNames,'GroupOrder',clusterNorm_groupOrder,'PlotStyle','compact','LabelVerbosity','all')
-    set(0,'CurrentFigure',clusterNorm_boxplotFig)
+    set(0,'CurrentFigure',clusterNorm_boxplotFig_sortMedian)
+    boxplot(clusterNorm_boxplotValues,boxplotStrainNames,'GroupOrder',clusterNorm_groupOrder_median,'PlotStyle','compact','LabelVerbosity','all')
+    set(0,'CurrentFigure',clusterNorm_boxplotFig_sortMedian)
     xlabel('stains')
     ylabel(['cluster ' yLabel])
     % mwNorm boxplot
-    set(0,'CurrentFigure',mwNorm_boxplotFig)
-    boxplot(mwNorm_boxplotValues,boxplotStrainNames,'GroupOrder',mwNorm_groupOrder,'PlotStyle','compact','LabelVerbosity','all')
+    set(0,'CurrentFigure',mwNorm_boxplotFig_sortMedian)
+    boxplot(mwNorm_boxplotValues,boxplotStrainNames,'GroupOrder',mwNorm_groupOrder_median,'PlotStyle','compact','LabelVerbosity','all')
+    xlabel('stains')
+    ylabel(['multiworm ' yLabel])
+end
+
+% boxplots sorted by 90th percentile
+% cluster boxplot
+set(0,'CurrentFigure',cluster_boxplotFig_sort90prc)
+boxplot(cluster_boxplotValues,boxplotStrainNames,'GroupOrder',cluster_groupOrder_90prc,'PlotStyle','compact','LabelVerbosity','all')
+set(0,'CurrentFigure',cluster_boxplotFig_sort90prc)
+xlabel('stains')
+ylabel(['cluster ' yLabel])
+% mw boxplot
+set(0,'CurrentFigure',mw_boxplotFig_sort90prc)
+boxplot(mw_boxplotValues,boxplotStrainNames,'GroupOrder',mw_groupOrder_90prc,'PlotStyle','compact','LabelVerbosity','all')
+xlabel('stains')
+ylabel(['multiworm ' yLabel])
+% sw boxplot
+set(0,'CurrentFigure',sw_boxplotFig_sort90prc)
+boxplot(sw_boxplotValues,boxplotStrainNames,'GroupOrder',sw_groupOrder_90prc,'PlotStyle','compact','LabelVerbosity','all')
+xlabel('stains')
+ylabel(['singleworm ' yLabel])
+if applySwNormalisation
+    yLabel = (['normalised ' feature ' (' metricNameYAxis ')']);
+    % clusterNorm boxplot
+    set(0,'CurrentFigure',clusterNorm_boxplotFig_sort90prc)
+    boxplot(clusterNorm_boxplotValues,boxplotStrainNames,'GroupOrder',clusterNorm_groupOrder_90prc,'PlotStyle','compact','LabelVerbosity','all')
+    set(0,'CurrentFigure',clusterNorm_boxplotFig_sort90prc)
+    xlabel('stains')
+    ylabel(['cluster ' yLabel])
+    % mwNorm boxplot
+    set(0,'CurrentFigure',mwNorm_boxplotFig_sort90prc)
+    boxplot(mwNorm_boxplotValues,boxplotStrainNames,'GroupOrder',mwNorm_groupOrder_90prc,'PlotStyle','compact','LabelVerbosity','all')
     xlabel('stains')
     ylabel(['multiworm ' yLabel])
 end
 
 % save figures
 if saveResults
-    cluster_figurename = ['figures/boxplots/' feature '_' metricText{metric} '_cluster'];
-    mw_figurename = ['figures/boxplots/' feature '_' metricText{metric} '_mw'];
-    sw_figurename = ['figures/boxplots/' feature '_' metricText{metric} '_sw'];
-    exportfig(cluster_boxplotFig,[cluster_figurename '.eps'],exportOptions)
-    exportfig(mw_boxplotFig,[mw_figurename '.eps'],exportOptions)
-    exportfig(sw_boxplotFig,[sw_figurename '.eps'],exportOptions)
+    cluster_figurename_byMedian = ['figures/boxplots/' feature '_' metricText{metric} '_cluster_sortMedian'];
+    mw_figurename_byMedian = ['figures/boxplots/' feature '_' metricText{metric} '_mw_sortMedian'];
+    sw_figurename_byMedian = ['figures/boxplots/' feature '_' metricText{metric} '_sw_sortMedian'];
+    cluster_figurename_by90prc = ['figures/boxplots/' feature '_' metricText{metric} '_cluster_sort90prc'];
+    mw_figurename_by90prc = ['figures/boxplots/' feature '_' metricText{metric} '_mw_sort90prc'];
+    sw_figurename_by90prc = ['figures/boxplots/' feature '_' metricText{metric} '_sw_sort90prc'];
+    exportfig(cluster_boxplotFig_sortMedian,[cluster_figurename_byMedian '.eps'],exportOptions)
+    exportfig(mw_boxplotFig_sortMedian,[mw_figurename_byMedian '.eps'],exportOptions)
+    exportfig(sw_boxplotFig_sortMedian,[sw_figurename_byMedian '.eps'],exportOptions)
+    exportfig(cluster_boxplotFig_sort90prc,[cluster_figurename_by90prc '.eps'],exportOptions)
+    exportfig(mw_boxplotFig_sort90prc,[mw_figurename_by90prc '.eps'],exportOptions)
+    exportfig(sw_boxplotFig_sort90prc,[sw_figurename_by90prc '.eps'],exportOptions)
     if applySwNormalisation
-        clusterNorm_figurename = ['figures/boxplots/' feature 'Norm_' metricText{metric} '_cluster'];
-        mwNorm_figurename = ['figures/boxplots/' feature 'Norm_' metricText{metric} '_mw'];
-        exportfig(clusterNorm_boxplotFig,[clusterNorm_figurename '.eps'],exportOptions)
-        exportfig(mwNorm_boxplotFig,[mwNorm_figurename '.eps'],exportOptions)
+        clusterNorm_figurename_byMedian = ['figures/boxplots/' feature 'Norm_' metricText{metric} '_cluster_sortMedian'];
+        mwNorm_figurename_byMedian = ['figures/boxplots/' feature 'Norm_' metricText{metric} '_mw_sortMedian'];
+        clusterNorm_figurename_by90prc = ['figures/boxplots/' feature 'Norm_' metricText{metric} '_cluster_sort90prc'];
+        mwNorm_figurename_by90prc = ['figures/boxplots/' feature 'Norm_' metricText{metric} '_mw_sort90prc'];
+        exportfig(clusterNorm_boxplotFig_sortMedian,[clusterNorm_figurename_byMedian '.eps'],exportOptions)
+        exportfig(mwNorm_boxplotFig_sortMedian,[mwNorm_figurename_byMedian '.eps'],exportOptions)
+        exportfig(clusterNorm_boxplotFig_sort90prc,[clusterNorm_figurename_by90prc '.eps'],exportOptions)
+        exportfig(mwNorm_boxplotFig_sort90prc,[mwNorm_figurename_by90prc '.eps'],exportOptions)
     end
 end
 
@@ -284,10 +362,10 @@ if export4Mapping
     %% export mapping variables
     % save median values
     mappingFileName = ['results/mapping/' feature '_' metricText{metric} '.mat'];
-    save(mappingFileName,'cluster_boxPlotSort','mw_boxPlotSort','sw_boxPlotSort')
     if applySwNormalisation
-        mappingFileName = ['results/mapping/' feature '_' metricText{metric} 'Norm.mat'];
-        save(mappingFileName,'clusterNorm_boxPlotSort','mwNorm_boxPlotSort')
+        save(mappingFileName,'cluster_boxPlotSort','mw_boxPlotSort','sw_boxPlotSort','clusterNorm_boxPlotSort','mwNorm_boxPlotSort')
+    else
+        save(mappingFileName,'cluster_boxPlotSort','mw_boxPlotSort','sw_boxPlotSort')
     end
     % remove DA609 from mapping
     cluster_removeIdx = find(strcmp(cluster_boxPlotSort(:,1),'DA609'));
@@ -302,7 +380,7 @@ if export4Mapping
         mwNorm_removeIdx = find(strcmp(mwNorm_boxPlotSort(:,1),'DA609'));
         mwNormNoDA_boxPlotSort = vertcat(mwNorm_boxPlotSort(1:mwNorm_removeIdx-1,:),mwNorm_boxPlotSort(mwNorm_removeIdx+1:end,:));
     end
-    % export strain median value (i.e. across replicates) of the user-defined metric (i.e. median or 90th percentile)
+    % export strain median and 90th percentile values of the user-defined metric (i.e. median) for mapping
     cluster_mappingFileName = ['results/mapping/' feature '_' metricText{metric} '_cluster.txt'];
     mw_mappingFileName = ['results/mapping/' feature '_' metricText{metric} '_mw.txt'];
     sw_mappingFileName = ['results/mapping/' feature '_' metricText{metric} '_sw.txt'];
