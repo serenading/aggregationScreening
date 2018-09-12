@@ -7,17 +7,18 @@ close all
 % set analysis parameters
 strainSet = 'divergent'; % 'controls','divergent','all'
 feature = 'hc'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'gf'(giant fluctuation).
-maxNumReplicates = 3; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
+maxNumReplicates =5; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 sampleFrameEveryNSec = 10;
-sampleEveryNPixel = 16;
-saveResults = false;
+sampleEveryNPixel = 8;
+saveResults = true;
+makeDownSampledVid = false;
 plotIndividualReps = false;
-pixelToMicron = 10; % 10 microns per pixel, read by pixelsize = double(h5readatt(filename,'/trajectories_data','microns_per_pixel?))
 
 % set default parameters
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
 histogramNormalisation = 'pdf'; % 'pdf' by default. 'count' an option
 dims = [2048 2048];
+pixelToMicron = 10; % 10 microns per pixel, read by pixelsize = double(h5readatt(filename,'/trajectories_data','microns_per_pixel?))
 
 % set feature-specific parameters
 if strcmp(feature,'hc')
@@ -45,12 +46,13 @@ load(['strainsList/' strainSet '.mat'])
 colorMap = distinguishable_colors(length(strains));
 % create empty figures
 featureFig = figure; hold on
+sampleFrameFig = figure;
 % create legend variable to hold strain name and experiment n numbers
 legends = cell(size(strains));
 
 %% go through each strain
 for strainCtr = 1:length(strains)
-    strain = strains{strainCtr};
+    strain = strains{strainCtr}
     filenames = strainFileList.([strain 'List_40']);
     % if there are many files, then subsample recordings without replacement
     if length(filenames)>maxNumReplicates
@@ -71,7 +73,7 @@ for strainCtr = 1:length(strains)
         %dims = fileInfo.Datasets(2).Dataspace.Size; %[2048,2048,num]
         %% sample frames
         if phaseRestrict
-            startFrameNum = frameRate*60*15;
+            startFrameNum = frameRate*60*15; % cuts out the first 15 minutes
         else
             startFrameNum = 0;
         end
@@ -88,9 +90,11 @@ for strainCtr = 1:length(strains)
             imageFrame = h5read(maskedVideoFileName,'/mask',[1,1,double(sampleFrames(frameCtr))],[dims(1),dims(2),1]);
             % generate binary segmentation based on black/white contrast
             binaryImage = imageFrame>0 & imageFrame<70;
-            % binaryImage = imfill(binaryImage, 'holes');
             % downsample image
             downsampleBinaryImage = binaryImage(1:sampleEveryNPixel:dims(1),1:sampleEveryNPixel:dims(2));
+            set(0,'CurrentFigure',sampleFrameFig)
+            imshow(downsampleBinaryImage)
+            %%%%%% need to determine pixels that don't move from frame to frame and exclude those as artefacts
             % calculate feature
             if strcmp(feature,'hc')
                 N = nnz(downsampleBinaryImage);
@@ -110,12 +114,12 @@ for strainCtr = 1:length(strains)
     branchHeights.(strain) = vertcat(branchHeights.(strain){:});
    % plot histogram of branch heights
     set(0,'CurrentFigure',featureFig)
-    histogram(branchHeights.(strain),'Normalization',histogramNormalisation,'EdgeColor',colorMap(strainCtr,:),'DisplayStyle','stairs')
+    histogram(branchHeights.(strain),'Normalization',histogramNormalisation,'EdgeColor',colorMap(strainCtr,:),'DisplayStyle','stairs','BinWidth',0.2)
 end
 
 %% save variable
 if saveResults
-    save(['results/' feature '_' strainSet '.mat'],'branchHeights')
+    save(['results/' feature '_' strainSet '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat'],'branchHeights')
 end
 
 % format and export
@@ -128,6 +132,6 @@ ylabel('probability')
 xlabel('inter-wormpixel distance (mm)')
 title([linkageMethod ' linkage'],'FontWeight','normal')
 if saveResults
-    figurename = ['figures/' feature '_' strainSet '_branchHeights_' linkageMethod];
+    figurename = ['figures/' feature '_' strainSet '_branchHeights_' linkageMethod '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel'];
     exportfig(featureFig,[figurename '.eps'],exportOptions)
 end

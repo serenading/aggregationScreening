@@ -1,7 +1,7 @@
-function [blobSpeeds] = calculateBlobSpeed(trajData, blobFeats,frameRate,blobSpeedSmoothFactor)
+function [blobSpeeds] = calculateBlobSpeed(trajData, blobFeats,frameRate,pixelToMicron,blobSpeedSmoothFactor)
 
 %% function calculates blobSpeed (smoothed over 1 second unless otherwise specified) 
-if nargin<4
+if nargin<5
     blobSpeedSmoothFactor = frameRate;
 end
 
@@ -29,6 +29,6 @@ for blobCtr = 1:numel(unique(trajData.worm_index_joined))
 end
 
 % turn blobSpeeds units into microns/second
-blobSpeeds = blobSpeeds/blobSpeedSmoothFactor*frameRate;
+blobSpeeds = blobSpeeds/blobSpeedSmoothFactor*frameRate*pixelToMicron;
 
 end
