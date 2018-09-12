@@ -5,16 +5,19 @@ close all
 
 %% set parameters
 % set analysis parameters
-strainSet = 'controls'; % 'controls','divergent','all'
+strainSet = 'divergent'; % 'controls','divergent','all'
 feature = 'hc'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'gf'(giant fluctuation).
-maxNumReplicates =5; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
-sampleFrameEveryNSec = 5;
-sampleEveryNPixel = 8; % 8 or 16
-saveResults = false;
+maxNumReplicates =15; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
+sampleFrameEveryNSec = 10;
+sampleEveryNPixel = 16; % 8 or 16
+saveResults = true;
 makeDownSampledVid = false;
 plotIndividualReps = false;
 
 % set default parameters
+useIntensityMask = true;
+useOnFoodMask = true;
+useMovementMask = true;
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
 histogramNormalisation = 'pdf'; % 'pdf' by default. 'count' an option
 dims = [2048 2048];
@@ -69,8 +72,14 @@ for strainCtr = 1:length(strains)
         trajData = h5read(filename,'/trajectories_data');
         frameRate = double(h5readatt(filename,'/plate_worms','expected_fps'));
         maskedVideoFileName = strrep(strrep(filename,'Results','MaskedVideos'),'_skeletons.hdf5','.hdf5');
+        foodContourCoords = h5read(filename,'/food_cnt_coord');
         %fileInfo = h5info(maskedVideoFileName); % slow
         %dims = fileInfo.Datasets(2).Dataspace.Size; %[2048,2048,num]
+        %% generate onfood binary mask
+        onFoodMask = poly2mask(foodContourCoords(1,:),foodContourCoords(2,:),dims(1),dims(2));
+        % dilate mask to include pixels immediately outside the mask
+        structuralElement = strel('disk',64); % dilate foodpatch by 64 pixels = 640 microns, about half a worm length
+        onFoodMaskDilate = imdilate(onFoodMask,structuralElement);
         %% sample frames
         if phaseRestrict
             startFrameNum = frameRate*60*15; % cuts out the first 15 minutes
@@ -84,37 +93,40 @@ for strainCtr = 1:length(strains)
         if strcmp(feature,'hc')
             branchHeights.(strain){fileCtr}= cell(numFrames,1); % pre-allocate cells to hold branch height values
         end
-        %% go through each frame to generate a 3D stack of downsampled frames
-        % preallocate 3D image stack
-        frameStack = NaN(numel(1:sampleEveryNPixel:dims(1)), numel(1:sampleEveryNPixel:dims(2)), numFrames);
+        %% go through each frame to generate downsampled frames
+        imageStack = NaN(numel(1:sampleEveryNPixel:dims(1)),numel(1:sampleEveryNPixel:dims(2)),numFrames);
         for frameCtr = 1:numFrames
             % load the frame
             imageFrame = h5read(maskedVideoFileName,'/mask',[1,1,double(sampleFrames(frameCtr))],[dims(1),dims(2),1]);
-            % generate binary segmentation based on black/white contrast
-            binaryImage = imageFrame>0 & imageFrame<70;
+            imageFrame = rot90(fliplr(imageFrame)); % flip and rotate the image to match the orientation as displayed in Tierpsy Tracker so it works with food contours
+            binaryImage = imageFrame;
+            % apply various masks to get binary image of worm/nonworm pixels
+            if useIntensityMask
+                % generate binary segmentation based on black/white contrast
+                binaryImage = binaryImage>0 & binaryImage<70;
+            end
+            if useOnFoodMask
+                % generate binary segmentation based on on/off mask
+                binaryImage = binaryImage & onFoodMaskDilate;
+            end
             % downsample image
             downsampleBinaryImage = binaryImage(1:sampleEveryNPixel:dims(1),1:sampleEveryNPixel:dims(2));
-            % add downsampled image to the stack
-            frameStack(:,:,frameCtr) = downsampleBinaryImage;
+            % add downsampled image to image stack
+            imageStack(:,:,frameCtr) = downsampleBinaryImage;
         end
-        % determine pixels that don't move from frame to frame and exclude those as artefacts
-        stackStd = std(frameStack,0,3); % calculate standard deviation along the temporal/third dimension
-        noMoveMask = stackStd>0; % get mask for moving pixels
+        % generate no movement mask
+        movementMask = std(imageStack,0,3)>0;
         for frameCtr = 1:numFrames
-            frameStack(:,:,frameCtr) = frameStack(:,:,frameCtr) & noMoveMask; % set nonmoving pixels to zero
-            numPixelsRemoved = nnz(frameStack(:,:,frameCtr))-nnz(frameStack(:,:,frameCtr) & noMoveMask);
-            if numPixelsRemoved >0
-                disp(['frame ' num2str(frameCtr) ' has ' numPixelsRemoved ' pixels removed'])
+            if useMovementMask
+                imageStack(:,:,frameCtr) = imageStack(:,:,frameCtr) & movementMask;
             end
-        end
-        % calculate feature
-        for frameCtr = 1:numFrames
             set(0,'CurrentFigure',sampleFrameFig)
-            imshow(frameStack(:,:,frameCtr))
+            imshow(imageStack(:,:,frameCtr))
+            % calculate feature
             if strcmp(feature,'hc')
-                N = nnz(frameStack(:,:,frameCtr));
+                N = nnz(imageStack(:,:,frameCtr));% downsampleBinaryImage);
                 if N>1 % need at least two worms in frame
-                    [x,y] = find(frameStack(:,:,frameCtr));
+                    [x,y] = find(imageStack(:,:,frameCtr));% downsampleBinaryImage);
                     pairDists = pdist([x y]*sampleEveryNPixel*pixelToMicron/1000); % pairDist in mm;
                     clustTree = linkage(pairDists,linkageMethod);
                     branchHeights.(strain){fileCtr}{frameCtr} = clustTree(:,3);
@@ -127,7 +139,7 @@ for strainCtr = 1:length(strains)
     end
     % pool data from multiple files
     branchHeights.(strain) = vertcat(branchHeights.(strain){:});
-   % plot histogram of branch heights
+    % plot histogram of branch heights
     set(0,'CurrentFigure',featureFig)
     histogram(branchHeights.(strain),'Normalization',histogramNormalisation,'EdgeColor',colorMap(strainCtr,:),'DisplayStyle','stairs','BinWidth',0.2)
 end
