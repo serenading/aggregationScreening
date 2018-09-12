@@ -5,12 +5,12 @@ close all
 
 %% set parameters
 % set analysis parameters
-strainSet = 'divergent'; % 'controls','divergent','all'
+strainSet = 'controls'; % 'controls','divergent','all'
 feature = 'hc'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'gf'(giant fluctuation).
 maxNumReplicates =5; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
-sampleFrameEveryNSec = 10;
-sampleEveryNPixel = 8;
-saveResults = true;
+sampleFrameEveryNSec = 5;
+sampleEveryNPixel = 8; % 8 or 16
+saveResults = false;
 makeDownSampledVid = false;
 plotIndividualReps = false;
 
@@ -52,7 +52,7 @@ legends = cell(size(strains));
 
 %% go through each strain
 for strainCtr = 1:length(strains)
-    strain = strains{strainCtr}
+    strain = strains{strainCtr};
     filenames = strainFileList.([strain 'List_40']);
     % if there are many files, then subsample recordings without replacement
     if length(filenames)>maxNumReplicates
@@ -84,7 +84,9 @@ for strainCtr = 1:length(strains)
         if strcmp(feature,'hc')
             branchHeights.(strain){fileCtr}= cell(numFrames,1); % pre-allocate cells to hold branch height values
         end
-        %% go through each frame
+        %% go through each frame to generate a 3D stack of downsampled frames
+        % preallocate 3D image stack
+        frameStack = NaN(numel(1:sampleEveryNPixel:dims(1)), numel(1:sampleEveryNPixel:dims(2)), numFrames);
         for frameCtr = 1:numFrames
             % load the frame
             imageFrame = h5read(maskedVideoFileName,'/mask',[1,1,double(sampleFrames(frameCtr))],[dims(1),dims(2),1]);
@@ -92,14 +94,27 @@ for strainCtr = 1:length(strains)
             binaryImage = imageFrame>0 & imageFrame<70;
             % downsample image
             downsampleBinaryImage = binaryImage(1:sampleEveryNPixel:dims(1),1:sampleEveryNPixel:dims(2));
+            % add downsampled image to the stack
+            frameStack(:,:,frameCtr) = downsampleBinaryImage;
+        end
+        % determine pixels that don't move from frame to frame and exclude those as artefacts
+        stackStd = std(frameStack,0,3); % calculate standard deviation along the temporal/third dimension
+        noMoveMask = stackStd>0; % get mask for moving pixels
+        for frameCtr = 1:numFrames
+            frameStack(:,:,frameCtr) = frameStack(:,:,frameCtr) & noMoveMask; % set nonmoving pixels to zero
+            numPixelsRemoved = nnz(frameStack(:,:,frameCtr))-nnz(frameStack(:,:,frameCtr) & noMoveMask);
+            if numPixelsRemoved >0
+                disp(['frame ' num2str(frameCtr) ' has ' numPixelsRemoved ' pixels removed'])
+            end
+        end
+        % calculate feature
+        for frameCtr = 1:numFrames
             set(0,'CurrentFigure',sampleFrameFig)
-            imshow(downsampleBinaryImage)
-            %%%%%% need to determine pixels that don't move from frame to frame and exclude those as artefacts
-            % calculate feature
+            imshow(frameStack(:,:,frameCtr))
             if strcmp(feature,'hc')
-                N = nnz(downsampleBinaryImage);
+                N = nnz(frameStack(:,:,frameCtr));
                 if N>1 % need at least two worms in frame
-                    [x,y] = find(downsampleBinaryImage);
+                    [x,y] = find(frameStack(:,:,frameCtr));
                     pairDists = pdist([x y]*sampleEveryNPixel*pixelToMicron/1000); % pairDist in mm;
                     clustTree = linkage(pairDists,linkageMethod);
                     branchHeights.(strain){fileCtr}{frameCtr} = clustTree(:,3);
