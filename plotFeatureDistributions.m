@@ -10,7 +10,7 @@ close all
 % set analysis parameters
 strainSet = 'divergent'; % 'controls','divergent','all'
 feature = 'perdurance'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
-saveResults = true;
+saveResults = false;
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 plotIndividualReps = false;
 

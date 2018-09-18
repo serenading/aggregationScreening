@@ -5,7 +5,7 @@ close all
 % 1) calculates metrics of the features data for cluster, mw, and sw blob categories (i.e. median of each replicate), and
 % 2) generates box plots using user-defined metric (i.e. median), sorted by median or 90th percentile values (i.e. median of median, or 90th percentile of median), and
 % 3) performs one-way ANOVA of the means and include p-values in the figure title, and
-% 4) exports median and 90th percentile feature median values for GWAS mapping
+% 4) exports median and 90th percentile feature median values (and removes DA609) for CeNDR GWAS mapping
 
 %% set parameter
 feature = 'perdurance'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
