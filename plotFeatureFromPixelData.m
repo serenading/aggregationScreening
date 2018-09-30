@@ -1,16 +1,18 @@
 clear
-close all
+%close all
 
-%% script extracts features for each of the strains of interest based on downsampled pixel data.
+%% script works with bright field wild isolate aggregation screening dataset to
+% extracts features for each of the strains of interest based on downsampled pixel data,
+% and plots a distribution for each strain.
 
 %% set parameterslegends
 % set analysis parameters
-strainSet = 'all'; % 'controls','divergent','all'
-feature = 'pcf'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'gf'(giant fluctuation).
+strainSet = 'divergent'; % 'controls','divergent','all'
+feature = 'ac'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'ac' (auto-correlation),'gf'(giant fluctuation).
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
-sampleFrameEveryNSec = 10; % 10 works
-sampleEveryNPixel = 16; % 16 works
-saveResults = false;
+sampleFrameEveryNSec = 0.32; % 10 works for pcf and hc, multiples of 0.04 (= 1 frame at 25 fps) for ac
+sampleEveryNPixel = 8;
+saveResults = true;
 plotIndividualReps = false;
 showFrame = false; % true if monitoring script running: display current downsized masked binary image as script runs
 makeDownSampledVid = false; % true if not monitoring script running: generate downsampled video to check afterwards that no obvious non-worm pixels are kept for analysis
@@ -19,11 +21,20 @@ makeDownSampledVid = false; % true if not monitoring script running: generate do
 if strcmp(feature,'hc')
     featVarName = 'branchHeights';
     linkageMethod = 'single'; % 'single' (preferred), 'average','centroid','complete','median','weighted'
-    yscale = 'linear';
     xLim = [0 4];
     yLabel = 'probability';
     xLabel = 'inter-wormpixel distance (mm)';
     figTitle = [linkageMethod ' linkage'];
+    if sampleEveryNPixel == 16
+        yscale = 'linear';
+        histBinWidth = 0.2;
+    elseif sampleEveryNPixel == 8
+        yscale = 'log';
+        histBinWidth = 0.1;
+    elseif sampleEveryNPixel == 4
+        yscale = 'log';
+        histBinWidth = 0.1;
+    end
 elseif strcmp(feature,'pcf')
     featVarName = 'pcf';
     distBinWidth = 0.1; % in units of mm
@@ -34,6 +45,14 @@ elseif strcmp(feature,'pcf')
     yLabel = 'positional correlation g(r)';
     xLabel = 'distance r (mm)';
     figTitle = 'pair correlation function';
+elseif strcmp(feature,'ac')
+    featVarName = 'ac';
+    maxLag = 300; % maximum lag time in seconds; currently do not set maxLag > 900s, as script extracts frames from twice the duration so the final frame has a full lag time.
+    yscale = 'linear';
+    yLabel = 'auto correlation';
+    xLabel = 'lag (frames)';
+    figTitle = 'image auto correlation';
+    xLim = [0 maxLag/sampleFrameEveryNSec];
 elseif strcmp(feature,'gf')
 end
 
@@ -42,9 +61,9 @@ useIntensityMask = true;
 useOnFoodMask = true;
 useMovementMask = true;
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
-histogramNormalisation = 'pdf'; % 'pdf' by default. 'count' an option
-dims = [2048 2048]; % can be read by the following but slow: fileInfo = h5info(maskedVideoFileName); dims = fileInfo.Datasets(2).Dataspace.Size; %[2048,2048,num]
+histogramNormalisation = 'pdf'; % 'pdf' (preferred) or 'count'
 pixelToMicron = 10; % 10 microns per pixel, read by pixelsize = double(h5readatt(filename,'/trajectories_data','microns_per_pixel?))
+dims = [2048 2048]; % can be read by the following but slow: fileInfo = h5info(maskedVideoFileName); dims = fileInfo.Datasets(2).Dataspace.Size; %[2048,2048,num]
 
 % set eps export options
 exportOptions = struct('Format','eps2',...
@@ -73,13 +92,183 @@ if showFrame
 end
 % empty the downsampledVideos directory
 if makeDownSampledVid
-    delete /Users/sding/Documents/AggScreening/downsampledVideos/*.avi 
+    delete /Users/sding/Documents/AggScreening/downsampledVideos/*.avi
 end
 
 % create legend variable to hold strain name and experiment n numbers
 legends = cell(size(strains));
-lineHandles = NaN(numel(strains),1);
+if strcmp(feature,'pcf')
+    lineHandles = NaN(numel(strains),1);
+end
 
+%% calculate features only if they haven't already been calculated and stored
+%try load(['/Users/sding/Documents/AggScreening/results/' feature '_' strainSet '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
+try load(['/Users/sding/Documents/AggScreening/results/' feature '_all_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
+catch % calculate features only if saved values don't exist
+    %% go through each strain
+    for strainCtr = 1:length(strains)
+        strain = strains{strainCtr};
+        filenames = strainFileList.([strain 'List_40']);
+        % if there are many files, then subsample recordings without replacement
+        if length(filenames)>maxNumReplicates
+            fileInd = datasample(1:length(filenames),maxNumReplicates,'Replace',false);
+        else
+            fileInd = 1:length(filenames);
+        end
+        %% go through each recording
+        for fileCtr = 1:length(fileInd)
+            [strainCtr, fileCtr]
+            %% load data
+            filename = filenames{fileInd(fileCtr)};
+            trajData = h5read(filename,'/trajectories_data');
+            frameRate = double(h5readatt(filename,'/plate_worms','expected_fps'));
+            maskedVideoFileName = strrep(strrep(filename,'Results','MaskedVideos'),'_skeletons.hdf5','.hdf5');
+            foodContourCoords = h5read(filename,'/food_cnt_coord');
+            %% initialise video if making one
+            if makeDownSampledVid
+                videoName = strsplit(maskedVideoFileName,'/');
+                videoName = ['/Users/sding/Documents/AggScreening/downsampledVideos/' videoName{end}(1:end-5)];
+                video = VideoWriter([videoName '.avi']);
+                video.FrameRate = 60/sampleFrameEveryNSec*3; % 1 sec video is 3 min actual video (i.e. 180x speed)
+                open(video)
+            end
+            %% generate onfood binary mask
+            onFoodMask = poly2mask(foodContourCoords(2,:),foodContourCoords(1,:),dims(1),dims(2)); % transposes foodContourCoords to match image coordinate system
+            % dilate mask to include pixels immediately outside the mask
+            structuralElement = strel('disk',64); % dilate foodpatch by 64 pixels = 640 microns, about half a worm length
+            onFoodMaskDilate = imdilate(onFoodMask,structuralElement);
+            % get the overall area of food patch in micron squared
+            overallArea = nnz(onFoodMaskDilate)*pixelToMicron^2;
+            %% sample frames
+            if phaseRestrict
+                startFrameNum = frameRate*60*15; % cuts out the first 15 minutes
+            else
+                startFrameNum = 0;
+            end            
+            if strcmp(feature,'ac')
+                endFrameNum = maxLag*frameRate*2 + startFrameNum; % sample twice as many frames to generate maskedImageStack
+                if endFrameNum > max(trajData.frame_number)
+                    endFrameNum = max(trajData.frame_number);
+                end
+                numFrames = floor(numel(startFrameNum:endFrameNum)/frameRate/sampleFrameEveryNSec);
+                sampleFrames = startFrameNum:sampleFrameEveryNSec*frameRate:endFrameNum;
+            else
+                endFrameNum = max(trajData.frame_number);
+                numFrames = floor(numel(startFrameNum:endFrameNum)/frameRate/sampleFrameEveryNSec);
+                sampleFrames = datasample(startFrameNum:endFrameNum,numFrames);
+            end
+            %% feature-specific set up
+            if strcmp(feature,'hc')
+                branchHeights.(strain){fileCtr}= cell(numFrames,1); % pre-allocate cells to hold branch height values
+            elseif strcmp(feature,'pcf')
+                pcf.(strain){fileCtr} = NaN(length(distBins) - 1,numFrames);
+            end
+            %% go through each frame to generate downsampled frames
+            tic
+            maskedImageStack = true(numel(1:sampleEveryNPixel:dims(1)),numel(1:sampleEveryNPixel:dims(2)),numFrames);
+            if showFrame | makeDownSampledVid
+                originalImageStack = NaN(numel(1:sampleEveryNPixel:dims(1)),numel(1:sampleEveryNPixel:dims(2)),numFrames);
+            end
+            for frameCtr = 1:numFrames
+                % load the frame
+                imageFrame = h5read(maskedVideoFileName,'/mask',[1,1,double(sampleFrames(frameCtr))],[dims(1),dims(2),1]);
+                maskedImage = imageFrame;
+                % apply various masks to get binary image of worm/nonworm pixels
+                if useIntensityMask
+                    % generate binary segmentation based on black/white contrast
+                    maskedImage = maskedImage>0 & maskedImage<70;
+                end
+                if useOnFoodMask
+                    % generate binary segmentation based on on/off mask
+                    maskedImage = maskedImage & onFoodMaskDilate;
+                end
+                % downsample masked image
+                downsampleMaskedImage = maskedImage(1:sampleEveryNPixel:dims(1),1:sampleEveryNPixel:dims(2));
+                % add downsampled image to image stack
+                maskedImageStack(:,:,frameCtr) = downsampleMaskedImage;
+                % generate downsampled, unmasked frame for side by side masking comparison
+                if showFrame | makeDownSampledVid
+                    intensityMaskedImageFrame = imageFrame>0 & imageFrame<70;
+                    originalImageStack(:,:,frameCtr) = intensityMaskedImageFrame(1:sampleEveryNPixel:dims(1),1:sampleEveryNPixel:dims(2));
+                end
+            end
+            % generate no movement mask
+            movementMask = std(maskedImageStack,0,3)>0;
+            % pre-allocate 2D maskedImage stack and frame standard deviation matrix
+            if strcmp(feature,'ac')
+                maskedImageStack2D = NaN(size(maskedImageStack,1)*size(maskedImageStack,2),size(maskedImageStack,3)); % npixels by time
+                numStartingFrames = floor(numFrames/2);
+                frameStd = NaN(1,numFrames);
+            end
+            % go through each frame
+            for frameCtr = 1:numFrames
+                % apply movement mask
+                if useMovementMask
+                    maskedImageStack(:,:,frameCtr) = maskedImageStack(:,:,frameCtr) & movementMask;
+                end
+                % display frame
+                if showFrame
+                    set(0,'CurrentFigure',sampleFrameFig)
+                    imshow([originalImageStack(:,:,frameCtr) maskedImageStack(:,:,frameCtr)])
+                end
+                % write frame to video
+                if makeDownSampledVid
+                    writeVideo(video,[originalImageStack(:,:,frameCtr) maskedImageStack(:,:,frameCtr)])
+                end
+                % check that the frame isn't all 1's by preallocation default
+                assert (nnz(maskedImageStack(:,:,frameCtr)) < size(maskedImageStack(:,:,frameCtr),1)*size(maskedImageStack(:,:,frameCtr),2),...
+                    ['Frame ' num2str(frameCtr) ' has all true pixels by pre-allocation default. Something is wrong'])
+                % write frame to 2D maskedImageStack
+                if strcmp(feature,'ac')
+                    currentImage = maskedImageStack(:,:,frameCtr);
+                    maskedImageStack2D(:,frameCtr) = currentImage(:) - mean(currentImage(:));
+                    % calculate standard deviation
+                    frameStd(frameCtr) = std(maskedImageStack2D(:,frameCtr));
+                end
+                % calculate feature
+                if strcmp(feature,'hc')| strcmp(feature,'pcf')
+                    N = nnz(maskedImageStack(:,:,frameCtr));
+                    if N>1 % need at least two pixels in frame
+                        [x,y] = find(maskedImageStack(:,:,frameCtr));
+                        pairDists = pdist([x y]*sampleEveryNPixel*pixelToMicron/1000); % pairDist in mm;
+                        if strcmp(feature,'hc')
+                            clustTree = linkage(pairDists,linkageMethod);
+                            branchHeights.(strain){fileCtr}{frameCtr} = clustTree(:,3);
+                            % dendrogram(clustTree,0,'Reorder',optimalleaforder(clustTree,pairDists));
+                        elseif strcmp(feature,'pcf')
+                            pcf.(strain){fileCtr}(:,frameCtr) = histcounts(pairDists,distBins,'Normalization','count'); % radial distribution function
+                            pcf.(strain){fileCtr}(:,frameCtr) = pcf.(strain){fileCtr}(:,frameCtr)'.*overallArea ...
+                                ./(pi*(distBins(2:end).^2 - (distBins(2:end) - distBinWidth).^2)*N*(N-1)/2); % normalisation by N(N-1)/2 as pdist doesn't double-count pairs
+                        end
+                    end
+                end
+            end
+            % pool data from frames
+            if strcmp(feature,'hc')
+                branchHeights.(strain){fileCtr} = vertcat(branchHeights.(strain){fileCtr}{:});
+            end
+            % close video
+            if makeDownSampledVid
+                close(video)
+            end
+            toc
+            tic
+            % calculate feature
+            if strcmp(feature,'ac')
+                ac.(strain){fileCtr} = calculateImageAutocorrelation(maskedImageStack2D,frameStd);
+            end
+            toc
+        end
+    end
+    %% save variable (only executed if new 'feature_all.mat' has been calculated)
+    if saveResults
+        if strcmp(strainSet,'all')
+            save(['results/' feature '_' strainSet '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat'],featVarName)%,'-v7.3' for large files for ac feature)
+        end
+    end
+end
+
+%% plot features
 %% go through each strain
 for strainCtr = 1:length(strains)
     strain = strains{strainCtr};
@@ -90,120 +279,24 @@ for strainCtr = 1:length(strains)
     else
         fileInd = 1:length(filenames);
     end
-    % update strain n number for figure legend
-    legends{strainCtr} = [strain ', n=' num2str(length(fileInd))];
     %% go through each recording
     for fileCtr = 1:length(fileInd)
-        %% load data
-        filename = filenames{fileInd(fileCtr)};
-        trajData = h5read(filename,'/trajectories_data');
-        frameRate = double(h5readatt(filename,'/plate_worms','expected_fps'));
-        maskedVideoFileName = strrep(strrep(filename,'Results','MaskedVideos'),'_skeletons.hdf5','.hdf5');
-        foodContourCoords = h5read(filename,'/food_cnt_coord');
-        %% initialise video if making one
-        if makeDownSampledVid
-            videoName = strsplit(maskedVideoFileName,'/');
-            videoName = ['/Users/sding/Documents/AggScreening/downsampledVideos/' videoName{end}(1:end-5)];
-            video = VideoWriter([videoName '.avi']);
-            video.FrameRate = 60/sampleFrameEveryNSec*3; % 1 sec video is 3 min actual video (i.e. 180x speed)
-            open(video)
-        end
-        %% generate onfood binary mask
-        onFoodMask = poly2mask(foodContourCoords(1,:),foodContourCoords(2,:),dims(1),dims(2));
-        % dilate mask to include pixels immediately outside the mask
-        structuralElement = strel('disk',64); % dilate foodpatch by 64 pixels = 640 microns, about half a worm length
-        onFoodMaskDilate = imdilate(onFoodMask,structuralElement);
-        % get the overall area of food patch in micron squared
-        overallArea = nnz(onFoodMaskDilate)*pixelToMicron^2;
-        %% sample frames
-        if phaseRestrict
-            startFrameNum = frameRate*60*15; % cuts out the first 15 minutes
-        else
-            startFrameNum = 0;
-        end
-        endFrameNum = max(trajData.frame_number);
-        numFrames = floor(numel(startFrameNum:endFrameNum)/frameRate/sampleFrameEveryNSec);
-        sampleFrames = datasample(startFrameNum:endFrameNum,numFrames);
-        %% feature-specific set up
-        if strcmp(feature,'hc')
-            branchHeights.(strain){fileCtr}= cell(numFrames,1); % pre-allocate cells to hold branch height values
-        elseif strcmp(feature,'pcf')
-            pcf.(strain){fileCtr} = NaN(length(distBins) - 1,numFrames);
-        end
-        %% go through each frame to generate downsampled frames
-        maskedImageStack = NaN(numel(1:sampleEveryNPixel:dims(1)),numel(1:sampleEveryNPixel:dims(2)),numFrames);
-        originalImageStack = NaN(numel(1:sampleEveryNPixel:dims(1)),numel(1:sampleEveryNPixel:dims(2)),numFrames);
-        for frameCtr = 1:numFrames
-            % load the frame
-            imageFrame = h5read(maskedVideoFileName,'/mask',[1,1,double(sampleFrames(frameCtr))],[dims(1),dims(2),1]);
-            imageFrame = rot90(fliplr(imageFrame)); % flip and rotate the image to match the orientation as displayed in Tierpsy Tracker so it works with food contours
-            maskedImage = imageFrame;
-            % apply various masks to get binary image of worm/nonworm pixels
-            if useIntensityMask
-                % generate binary segmentation based on black/white contrast
-                maskedImage = maskedImage>0 & maskedImage<70;
-            end
-            if useOnFoodMask
-                % generate binary segmentation based on on/off mask
-                maskedImage = maskedImage & onFoodMaskDilate;
-            end
-            % downsample masked image
-            downsampleMaskedImage = maskedImage(1:sampleEveryNPixel:dims(1),1:sampleEveryNPixel:dims(2));
-            % add downsampled image to image stack
-            maskedImageStack(:,:,frameCtr) = downsampleMaskedImage;
-            % generate downsampled, unmasked frame for side by side masking comparison
-            if showFrame | makeDownSampledVid
-                intensityMaskedImageFrame = maskedImage>0 & maskedImage<70;
-                originalImageStack(:,:,frameCtr) = intensityMaskedImageFrame(1:sampleEveryNPixel:dims(1),1:sampleEveryNPixel:dims(2));
-            end
-        end
-        % generate no movement mask
-        movementMask = std(maskedImageStack,0,3)>0;
-        for frameCtr = 1:numFrames
-            if useMovementMask
-                maskedImageStack(:,:,frameCtr) = maskedImageStack(:,:,frameCtr) & movementMask;
-            end
-            % display frame
-            if showFrame
-            set(0,'CurrentFigure',sampleFrameFig)
-            imshow([originalImageStack(:,:,frameCtr) maskedImageStack(:,:,frameCtr)])
-            end
-            % write frame to video
-            if makeDownSampledVid
-                writeVideo(video,[originalImageStack(:,:,frameCtr) maskedImageStack(:,:,frameCtr)])
-            end
-            % calculate feature
-            N = nnz(maskedImageStack(:,:,frameCtr));% downsampleBinaryImage);
-            if N>1 % need at least two worms in frame
-                [x,y] = find(maskedImageStack(:,:,frameCtr));% downsampleBinaryImage);
-                pairDists = pdist([x y]*sampleEveryNPixel*pixelToMicron/1000); % pairDist in mm;
-                if strcmp(feature,'hc')
-                    clustTree = linkage(pairDists,linkageMethod);
-                    branchHeights.(strain){fileCtr}{frameCtr} = clustTree(:,3);
-                    % dendrogram(clustTree,0,'Reorder',optimalleaforder(clustTree,pairDists));
-                elseif strcmp(feature,'pcf')
-                    pcf.(strain){fileCtr}(:,frameCtr) = histcounts(pairDists,distBins,'Normalization','count'); % radial distribution function
-                    pcf.(strain){fileCtr}(:,frameCtr) = pcf.(strain){fileCtr}(:,frameCtr)'.*overallArea ...
-                        ./(pi*(distBins(2:end).^2 - (distBins(2:end) - distBinWidth).^2)*N*(N-1)/2); % normalisation by N(N-1)/2 as pdist doesn't double-count pairs
-                end
-            end
-        end
-        % pool data from frames
-        if strcmp(feature,'hc')
-            branchHeights.(strain){fileCtr} = vertcat(branchHeights.(strain){fileCtr}{:});
-        end
-        % close video
-        if makeDownSampledVid
-            close(video)
+        % update strain n number for figure legend
+        legends{strainCtr} = [strain ', n=' num2str(length(fileInd))];
+        % keep track of lag times
+        if strcmp(feature,'ac')
+            lagTimes(1,fileCtr) = size(ac.(strain){fileCtr},2);
         end
         if plotIndividualReps
             set(0,'CurrentFigure',featureFig)
             if strcmp(feature, 'hc')
-                histogram(branchHeights.(strain){fileCtr},'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:),'BinWidth',0.2)
+                histogram(branchHeights.(strain){fileCtr},'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:),'BinWidth',histBinWidth)
             elseif strcmp(feature,'pcf')
                 boundedline(distBins(2:end)-distBinWidth/2,nanmean(pcf.(strain){fileCtr},2),...
                     [nanstd(pcf.(strain){fileCtr},0,2) nanstd(pcf.(strain){fileCtr},0,2)]./sqrt(nnz(sum(~isnan(pcf.(strain){fileCtr}),2))),...
                     'alpha',featureFig.Children,'cmap',colorMap(strainCtr,:))
+            elseif strcmp(feature, 'ac')
+                plot(mean(ac.(strain){fileCtr},1),'Color',colorMap(strainCtr,:))
             end
         end
     end
@@ -212,24 +305,26 @@ for strainCtr = 1:length(strains)
         branchHeights_pooled.(strain) = vertcat(branchHeights.(strain){:});
     elseif strcmp(feature,'pcf')
         pcf_pooled.(strain) = horzcat(pcf.(strain){:});
+    elseif strcmp(feature,'ac')
+        ac_pooled.(strain) = vertcat(ac.(strain){:});
     end
     % plot features
     set(0,'CurrentFigure',featurePooledFig)
     if strcmp(feature,'hc')
-        histogram(branchHeights_pooled.(strain),'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:),'BinWidth',0.2)
+        histogram(branchHeights_pooled.(strain),'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:),'BinWidth',histBinWidth)
     elseif strcmp(feature,'pcf')
         [lineHandles(strainCtr), ~] = boundedline(distBins(2:end)-distBinWidth/2,nanmean(pcf_pooled.(strain),2),...
             [nanstd(pcf_pooled.(strain),0,2) nanstd(pcf_pooled.(strain),0,2)]./sqrt(nnz(sum(~isnan(pcf_pooled.(strain)),2))),...
             'alpha',featurePooledFig.Children,'cmap',colorMap(strainCtr,:));
+    elseif strcmp(feature,'ac')
+        y = mean(ac_pooled.(strain),1)';
+        x = 1:numel(y);
+        %f = fit(x,y,'exp2');
+        plot(x,y,'Color',colorMap(strainCtr,:))
     end
 end
 
-%% save variable
-if saveResults
-    save(['results/' feature '_' strainSet '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat'],featVarName)
-end
-
-% format and export
+%% format and export
 set(featurePooledFig,'PaperUnits','centimeters')
 set(0,'CurrentFigure',featurePooledFig)
 if strcmp(feature,'pcf')
