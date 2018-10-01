@@ -12,7 +12,7 @@ feature = 'ac'; % specify feature as string. 'pcf' (pair correlation function), 
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 sampleFrameEveryNSec = 0.32; % 10 works for pcf and hc, multiples of 0.04 (= 1 frame at 25 fps) for ac
 sampleEveryNPixel = 8;
-saveResults = true;
+saveResults = false;
 plotIndividualReps = false;
 showFrame = false; % true if monitoring script running: display current downsized masked binary image as script runs
 makeDownSampledVid = false; % true if not monitoring script running: generate downsampled video to check afterwards that no obvious non-worm pixels are kept for analysis
@@ -21,10 +21,15 @@ makeDownSampledVid = false; % true if not monitoring script running: generate do
 if strcmp(feature,'hc')
     featVarName = 'branchHeights';
     linkageMethod = 'single'; % 'single' (preferred), 'average','centroid','complete','median','weighted'
+    histogramNormalisation = 'pdf'; % 'pdf' (preferred) or 'count'
     xLim = [0 4];
-    yLabel = 'probability';
-    xLabel = 'inter-wormpixel distance (mm)';
     figTitle = [linkageMethod ' linkage'];
+    xLabel = 'inter-wormpixel distance (mm)';
+    if strcmp(histogramNormalisation,'pdf')
+        yLabel = 'probability density function';
+    else
+        yLabel = histogramNormalisation;
+    end
     if sampleEveryNPixel == 16
         yscale = 'linear';
         histBinWidth = 0.2;
@@ -49,7 +54,7 @@ elseif strcmp(feature,'ac')
     featVarName = 'ac';
     maxLag = 300; % maximum lag time in seconds; currently do not set maxLag > 900s, as script extracts frames from twice the duration so the final frame has a full lag time.
     yscale = 'linear';
-    yLabel = 'auto correlation';
+    yLabel = 'correlation coefficient';
     xLabel = 'lag (frames)';
     figTitle = 'image auto correlation';
     xLim = [0 maxLag/sampleFrameEveryNSec];
@@ -61,7 +66,6 @@ useIntensityMask = true;
 useOnFoodMask = true;
 useMovementMask = true;
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
-histogramNormalisation = 'pdf'; % 'pdf' (preferred) or 'count'
 pixelToMicron = 10; % 10 microns per pixel, read by pixelsize = double(h5readatt(filename,'/trajectories_data','microns_per_pixel?))
 dims = [2048 2048]; % can be read by the following but slow: fileInfo = h5info(maskedVideoFileName); dims = fileInfo.Datasets(2).Dataspace.Size; %[2048,2048,num]
 

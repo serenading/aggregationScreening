@@ -8,17 +8,22 @@ close all
 
 %% set parameters
 % set analysis parameters
-strainSet = 'all'; % 'controls','divergent','all'
+strainSet = 'divergent'; % 'controls','divergent','all'
 feature = 'perdurance'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
-saveResults = true;
+saveResults = false;
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 plotIndividualReps = false;
 
 % set default parameters
 clusterArea = 4; % 4 by default
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
-histogramNormalisation = 'pdf'; % 'pdf' by default. 'count' an option
 pixelToMicron = 10; % 10 microns per pixel, read by pixelsize = double(h5readatt(filename,'/trajectories_data','microns_per_pixel?))
+histogramNormalisation = 'pdf'; % 'pdf' by default. 'probability' and 'count' options
+if strcmp(histogramNormalisation,'pdf')
+    histogramNormalisationText = 'probability density function';
+else
+    histogramNormalisationText = histogramNormalisation;
+end
 
 % set feature-specific parameters
 if strcmp(feature,'area')
@@ -36,17 +41,20 @@ elseif strcmp(feature,'speed')
     histogramXLimNorm = [0 3];
     histogramXLim = [0 400];
     yscale = 'log';
-    speedSmoothFactorInSec = 3; % number of seconds to smooth speed calculations over
+    speedSmoothFactorInSec = 3; % number of seconds to smooth speed calculations over. 3 by default, 1 ok, 5 too long
 elseif strcmp(feature,'compactness')
     unit = '';
     applySwNormalisation = true;
+    histogramXLim = [0 1];
     yscale = 'log';
 elseif strcmp(feature,'quirkiness')
     unit = '';
+    histogramXLim = [0 1];
     yscale = 'log';
     applySwNormalisation = true;
 elseif strcmp(feature,'solidity')
     unit = '';
+    histogramXLim = [0 1];
     applySwNormalisation = true;
     yscale = 'log';
 elseif strcmp(feature,'perimeter')
@@ -99,7 +107,13 @@ legends = cell(size(strains));
 
 
 %% calculate features only if they haven't already been calculated and stored
-try load(['/Users/sding/Documents/AggScreening/results/' feature '_all.mat']) % try opening saved values
+if strcmp(feature, 'speed')
+    loadResultName = ['/Users/sding/Documents/AggScreening/results/' feature '_all_smooth' num2str(speedSmoothFactorInSec) 's.mat'];
+else
+    loadResultName = ['/Users/sding/Documents/AggScreening/results/' feature '_all.mat'];
+end
+
+try load(loadResultName) % try opening saved values
     if strcmp(feature,'perdurance')
         load ('results/perduranceSurvival_all.mat')
     end
@@ -194,7 +208,12 @@ catch % calculate features only if saved values don't exist
     %% save variables (only executed if new 'feature_all.mat' has been calculated)
     if saveResults
         if strcmp(strainSet, 'all')
-            save(['results/' feature '_' strainSet '.mat'],'sw_feature','mw_feature','cluster_feature')
+            if strcmp(feature,'speed')
+                saveResultName = ['results/' feature '_' strainSet '_smooth' num2str(speedSmoothFactorInSec) 's.mat'];
+            else
+                saveResultName = ['results/' feature '_' strainSet '.mat'];
+            end
+            save(saveResultName,'sw_feature','mw_feature','cluster_feature')
             if strcmp(feature, 'perdurance')
                 save(['results/perduranceSurvival_' strainSet '.mat'],'sw_perdDist','mw_perdDist','cluster_perdDist')
             end
@@ -242,12 +261,21 @@ for strainCtr = 1:length(strains)
     end
     
     %% combine the replicates and plot distribution
-    mw_featurePooled.(strain) = mw_feature.(strain){:};
-    cluster_featurePooled.(strain) = cluster_feature.(strain){:};
-    sw_featurePooled.(strain) = sw_feature.(strain){:};
+    mw_featurePooled.(strain) = mw_feature.(strain){1};
+    cluster_featurePooled.(strain) = cluster_feature.(strain){1};
+    sw_featurePooled.(strain) = sw_feature.(strain){1};
     if applySwNormalisation
-        mwNorm_featurePooled.(strain) = mwNorm_feature.(strain){:};
-        clusterNorm_featurePooled.(strain) = clusterNorm_feature.(strain){:};
+        mwNorm_featurePooled.(strain) = mwNorm_feature.(strain){1};
+        clusterNorm_featurePooled.(strain) = clusterNorm_feature.(strain){1};
+    end
+    for fileCtr = 2:length(mw_feature.(strain))
+        mw_featurePooled.(strain) = vertcat(mw_featurePooled.(strain),mw_feature.(strain){fileCtr});
+        cluster_featurePooled.(strain) = vertcat(cluster_featurePooled.(strain),cluster_feature.(strain){fileCtr});
+        sw_featurePooled.(strain) = vertcat(sw_featurePooled.(strain),sw_feature.(strain){fileCtr});
+        if applySwNormalisation
+            mwNorm_featurePooled.(strain) = vertcat(mwNorm_featurePooled.(strain),mwNorm_feature.(strain){fileCtr});
+            clusterNorm_featurePooled.(strain) = vertcat(clusterNorm_featurePooled.(strain),clusterNorm_feature.(strain){fileCtr});
+        end
     end
     set(0,'CurrentFigure',mw_featurePooledFig)
     histogram(mw_featurePooled.(strain),'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:))
@@ -272,11 +300,8 @@ set(gca, 'YScale', yscale)
 legend(legends,'Location','eastoutside')
 title(['single worm ' feature])
 xlabel([feature unit])
-if strcmp(histogramNormalisation,'pdf')
-    ylabel('probability')
-elseif strcmp(histogramNormalisation,'count')
-    ylabel('count')
-end
+ylabel(histogramNormalisationText)
+
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
@@ -291,11 +316,7 @@ set(gca, 'YScale', yscale)
 legend(legends,'Location','eastoutside')
 title(['multiworm ' feature])
 xlabel([feature unit])
-if strcmp(histogramNormalisation,'pdf')
-    ylabel('probability')
-elseif strcmp(histogramNormalisation,'count')
-    ylabel('count')
-end
+ylabel(histogramNormalisationText)
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
@@ -310,11 +331,7 @@ set(gca, 'YScale', yscale)
 legend(legends,'Location','eastoutside')
 title(['cluster ' feature])
 xlabel([feature unit])
-if strcmp(histogramNormalisation,'pdf')
-    ylabel('probability')
-elseif strcmp(histogramNormalisation,'count')
-    ylabel('count')
-end
+ylabel(histogramNormalisationText)
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
@@ -330,11 +347,7 @@ if applySwNormalisation
     legend(legends,'Location','eastoutside')
     title(['multiworm ' feature])
     xlabel(['relative ' feature])
-    if strcmp(histogramNormalisation,'pdf')
-        ylabel('probability')
-    elseif strcmp(histogramNormalisation,'count')
-        ylabel('count')
-    end
+    ylabel(histogramNormalisationText)
     if exist('histogramXLimNorm')
         xlim(histogramXLimNorm)
     end
@@ -349,11 +362,7 @@ if applySwNormalisation
     legend(legends,'Location','eastoutside')
     title(['cluster ' feature])
     xlabel(['relative ' feature])
-    if strcmp(histogramNormalisation,'pdf')
-        ylabel('probability')
-    elseif strcmp(histogramNormalisation,'count')
-        ylabel('count')
-    end
+    ylabel(histogramNormalisationText)
     if exist('histogramXLimNorm')
         xlim(histogramXLimNorm)
     end
