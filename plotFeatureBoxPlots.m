@@ -8,7 +8,7 @@ close all
 % 4) exports feature metric values (and removes DA609) for CeNDR GWAS mapping
 
 %% set parameter
-feature = 'pcf'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance','perduranceSurvival','pcf','hc'
+feature = 'area'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance','perduranceSurvival','pcf','hc'
 strainSet = 'all'; %'all'
 metrics = [4 6]; % [4 6] to use median and 90th prc from each replicate. %1 = min, 2 = 10th prc, 3 = 25th prc, 4 = median, 5 = 75th prc, 6 = 90th prc, 7 = max
 saveResults = false;
