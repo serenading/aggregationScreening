@@ -1,5 +1,5 @@
 clear
-%close all
+close all
 
 %% script works with bright field wild isolate aggregation screening dataset to
 % extracts features for each of the strains of interest based on downsampled pixel data,
@@ -7,16 +7,17 @@ clear
 
 %% set parameterslegends
 % set analysis parameters
-strainSet = 'divergent'; % 'controls','divergent','all'
+strainSet = 'all'; % 'controls','divergent','all'
 feature = 'ac'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'ac' (auto-correlation),'gf'(giant fluctuation).
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 sampleFrameEveryNSec = 0.32; % 10 works for pcf and hc, multiples of 0.04 (= 1 frame at 25 fps) for ac
 sampleEveryNPixel = 8;
 saveResults = false;
-plotIndividualReps = false;
+plotIndividualReps = true;
 showFrame = false; % true if monitoring script running: display current downsized masked binary image as script runs
 makeDownSampledVid = false; % true if not monitoring script running: generate downsampled video to check afterwards that no obvious non-worm pixels are kept for analysis
-
+fitModel = true;
+    
 % set feature-specific parameters
 if strcmp(feature,'hc')
     featVarName = 'branchHeights';
@@ -58,6 +59,9 @@ elseif strcmp(feature,'ac')
     xLabel = 'lag (frames)';
     figTitle = 'image auto correlation';
     xLim = [0 maxLag/sampleFrameEveryNSec];
+    if fitModel
+        modelFun = {'power2'};
+    end
 elseif strcmp(feature,'gf')
 end
 
@@ -90,9 +94,15 @@ colorMap = distinguishable_colors(length(strains));
 featurePooledFig = figure; hold on
 if plotIndividualReps
     featureFig = figure; hold on
+    if fitModel
+        modelFig = figure; hold on
+    end
 end
 if showFrame
     sampleFrameFig = figure;
+end
+if fitModel
+    modelPooledFig = figure; hold on
 end
 % empty the downsampledVideos directory
 if makeDownSampledVid
@@ -106,8 +116,8 @@ if strcmp(feature,'pcf')
 end
 
 %% calculate features only if they haven't already been calculated and stored
-%try load(['/Users/sding/Documents/AggScreening/results/' feature '_' strainSet '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
-try load(['/Users/sding/Documents/AggScreening/results/' feature '_all_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
+try load(['/Users/sding/Documents/AggScreening/results/' feature '_' strainSet '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
+%try load(['/Users/sding/Documents/AggScreening/results/' feature '_all_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
 catch % calculate features only if saved values don't exist
     %% go through each strain
     for strainCtr = 1:length(strains)
@@ -233,8 +243,8 @@ catch % calculate features only if saved values don't exist
                 if strcmp(feature,'hc')| strcmp(feature,'pcf')
                     N = nnz(maskedImageStack(:,:,frameCtr));
                     if N>1 % need at least two pixels in frame
-                        [x,y] = find(maskedImageStack(:,:,frameCtr));
-                        pairDists = pdist([x y]*sampleEveryNPixel*pixelToMicron/1000); % pairDist in mm;
+                        [x,ydata] = find(maskedImageStack(:,:,frameCtr));
+                        pairDists = pdist([x ydata]*sampleEveryNPixel*pixelToMicron/1000); % pairDist in mm;
                         if strcmp(feature,'hc')
                             clustTree = linkage(pairDists,linkageMethod);
                             branchHeights.(strain){fileCtr}{frameCtr} = clustTree(:,3);
@@ -300,7 +310,22 @@ for strainCtr = 1:length(strains)
                     [nanstd(pcf.(strain){fileCtr},0,2) nanstd(pcf.(strain){fileCtr},0,2)]./sqrt(nnz(sum(~isnan(pcf.(strain){fileCtr}),2))),...
                     'alpha',featureFig.Children,'cmap',colorMap(strainCtr,:))
             elseif strcmp(feature, 'ac')
-                plot(mean(ac.(strain){fileCtr},1),'Color',colorMap(strainCtr,:))
+                y = nanmean(ac.(strain){fileCtr},1)';
+                x = 1:numel(y); x = x';
+                plot(x,y,'Color',colorMap(strainCtr,:))
+                %plot(mean(ac.(strain){fileCtr},1),'Color',colorMap(strainCtr,:))
+                if fitModel
+                    if ~isempty(y) & nnz(isnan(y))~=numel(x)
+                        set(0,'CurrentFigure',modelFig)
+                        for modelCtr = 1:length(modelFun)
+                            [f.(strain){fileCtr},gof.(strain){fileCtr}] = fit(x,y,modelFun{modelCtr}); % fit model function
+                            subplot(1,ceil(length(modelFun)/1),modelCtr); hold on
+                            plot(x,y,'Marker','.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+                            plot(x,f.(strain){fileCtr}(x),'Color',colorMap(strainCtr,:));
+                            title(modelFun{modelCtr})
+                        end
+                    end
+                end
             end
         end
     end
@@ -321,10 +346,31 @@ for strainCtr = 1:length(strains)
             [nanstd(pcf_pooled.(strain),0,2) nanstd(pcf_pooled.(strain),0,2)]./sqrt(nnz(sum(~isnan(pcf_pooled.(strain)),2))),...
             'alpha',featurePooledFig.Children,'cmap',colorMap(strainCtr,:));
     elseif strcmp(feature,'ac')
-        y = mean(ac_pooled.(strain),1)';
-        x = 1:numel(y);
-        %f = fit(x,y,'exp2');
-        plot(x,y,'Color',colorMap(strainCtr,:))
+        y = nanmean(ac_pooled.(strain),1)';
+        x = 1:numel(y); x = x';
+        plot(x,y,'Color',colorMap(strainCtr,:));
+        if fitModel
+            set(0,'CurrentFigure',modelPooledFig)
+            for modelCtr = 1:length(modelFun)
+                [f_pooled.(strain),gof_pooled.(strain)] = fit(x,y,modelFun{modelCtr}); % fit model function
+                subplot(1,ceil(length(modelFun)/1),modelCtr); hold on
+                plot(x,y,'Marker','.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+                plot(x,f_pooled.(strain)(x),'Color',colorMap(strainCtr,:));
+                title(modelFun{modelCtr})
+            end
+        end
+    end
+end
+
+%% save model fitting variable
+if saveResults
+    if fitModel
+        if length(modelFun) == 1
+            save(['results/modelFit/' feature '_' strainSet '_fitmodel_' modelFun{1} '_' featVarName '_Pooled_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat'],'f_pooled','gof_pooled')
+            if plotIndividualReps
+                save(['results/modelFit/' feature '_' strainSet '_fitmodel_' modelFun{1} '_' featVarName '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat'],'f','gof')
+            end
+        end
     end
 end
 
@@ -362,5 +408,41 @@ if plotIndividualReps
     if saveResults
         figurename = ['figures/' feature '_' strainSet '_' featVarName '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel'];
         exportfig(featureFig,[figurename '.eps'],exportOptions)
+    end
+end
+
+if fitModel
+    set(modelPooledFig,'PaperUnits','centimeters')
+    set(0,'CurrentFigure',modelPooledFig)
+    xlabel(xLabel)
+    ylabel(yLabel)
+    if saveResults
+        if length(modelFun) == 1
+            figurename = ['figures/modelFit/' feature '_' strainSet '_fitmodel_' modelFun{1} '_' featVarName '_Pooled_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel'];
+        else
+            figurename = ['figures/modelFit/' feature '_' strainSet '_fitmodel' num2str(length(modelFun)) '_' featVarName '_Pooled_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel'];
+        end
+        exportOptions2 = struct('Format','eps2',...
+            'Color','rgb',...
+            'Width',30,...
+            'Resolution',300,...
+            'FontMode','fixed',...
+            'FontSize',20,...
+            'LineWidth',2);
+        exportfig(modelPooledFig,[figurename '.eps'],exportOptions2)
+    end
+    if plotIndividualReps
+        set(modelFig,'PaperUnits','centimeters')
+        set(0,'CurrentFigure',modelFig)
+        xlabel(xLabel)
+        ylabel(yLabel)
+        if saveResults
+            if length(modelFun) == 1
+                figurename = ['figures/modelFit/' feature '_' strainSet '_fitmodel_' modelFun{1} '_' featVarName '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel'];
+            else
+                figurename = ['figures/modelFit/' feature '_' strainSet '_fitmodel' num2str(length(modelFun)) '_' featVarName '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel'];
+            end
+            exportfig(modelFig,[figurename '.eps'],exportOptions2)
+        end
     end
 end
