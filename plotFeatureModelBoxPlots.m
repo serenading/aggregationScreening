@@ -4,18 +4,28 @@ close all
 %% set parameter
 feature = 'ac'; % 'ac' or 'pcf'
 strainSet = 'all'; %'all'
-saveResults = true;
-export4Mapping = true;
+export4Mapping = false;
+saveResults = false;
 
 %% set feature-specific parameter
 if strcmp(feature,'ac')
-    modelFun = 'power2';
+    modelFun = 'exp3'; % 'exp3', 'mexp3' or 'power2'
     resultFilePath = ['/Users/sding/Documents/AggScreening/results/modelFit/ac_all_fitmodel_' modelFun '_ac_sample0.32s_8pixel.mat'];
-    if strcmp(modelFun, 'power2')
+    if strcmp(modelFun, 'exp3')
+        paramList = {'a','b','c','d','e'};
+    elseif strcmp(modelFun, 'mexp3')
+        paramList = {'a','b','c','d','e','f'};
+    elseif strcmp(modelFun, 'power2')
         paramList = {'a','b','c'};
     end
 elseif strcmp(feature,'pcf')
-    resultFilePath = '/Users/sding/Documents/AggScreening/results/pcf_all_sample10s_1pixel.mat';
+    modelFun = 'exp2'; % 'exp1' or 'exp2'
+    resultFilePath = ['/Users/sding/Documents/AggScreening/results/modelFit/pcf_all_fitmodel_' modelFun '_pcf_sample10s_1pixel.mat'];
+    if strcmp(modelFun, 'exp1')
+        paramList = {'a','b'};
+    elseif strcmp(modelFun, 'exp2')
+        paramList = {'a','b','c','d'};
+    end
 end
 
 %% prep work
@@ -135,9 +145,11 @@ for paramCtr = 1:numParams
         boxPlotSort = sortrows(boxPlotSort,1);
         mappingFeatValExport(:,paramCtr+1) = boxPlotSort(:,2);
         headingText{paramCtr+1} = ['param_' paramList{paramCtr}];
-        % save median values (including DA609)
-        mappingFileName = ['results/mapping/' feature '_' modelFun 'FitModel.mat'];
-        save(mappingFileName,'mappingFeatValExport')
+        if saveResults
+            % save median values (including DA609)
+            mappingFileName = ['results/mapping/' feature '_' modelFun 'FitModel.mat'];
+            save(mappingFileName,'mappingFeatValExport')
+        end
     end
 end
 
@@ -150,6 +162,8 @@ if export4Mapping
     % add heading
     mappingFeatValExport = vertcat(headingText,mappingFeatValExport);
     % export for mapping
-    mappingFeatValExportName = ['results/mapping/' feature '_' modelFun 'FitModel.txt'];
-    dlmcell(mappingFeatValExportName,mappingFeatValExport);
+    if saveResults
+        mappingFeatValExportName = ['results/mapping/' feature '_' modelFun 'FitModel.txt'];
+        dlmcell(mappingFeatValExportName,mappingFeatValExport);
+    end
 end

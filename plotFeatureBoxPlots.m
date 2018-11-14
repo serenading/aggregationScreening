@@ -40,33 +40,14 @@ elseif strcmp(feature,'solidity')
 elseif strcmp(feature,'perimeter')
     unit = ' (mm)';
     applySwNormalisation = true;
-elseif strcmp(feature,'pcf')
-    unit = '';
-    applySwNormalisation = false;
-    load('/Users/sding/Documents/AggScreening/results/pcf_all_sample10s_1pixel.mat')
-    if size(pcf.DA609{1},1) == 15
-        distBinWidth = 0.1; % in units of mm
-        maxDist = 1.5; % in units of mm
-        distBins = 0:distBinWidth:maxDist;
-    else
-        error('unknown binWidth for pcf data')
-    end
 end
 
 %% prep work
 addpath('auxiliary/')
-if ~strcmp(feature,'pcf')
-    load(['results/' feature '_all.mat'])
-end
-% rename loaded variables if necessary
 if strcmp(feature,'perduranceSurvival')
     cluster_feature = cluster_perdDist;
     mw_feature = mw_perdDist;
     sw_feature = sw_perdDist;
-elseif strcmp(feature,'pcf')
-    cluster_feature = pcf; % for this feature "cluster/mw/sw" categoes do not matter %%%%%
-    mw_feature = pcf; 
-    sw_feature = pcf;
 end
 
 % create empty figures
@@ -135,18 +116,7 @@ catch % calculate metric value only if it doesn't already exist
             swMedian = nanmedian(sw_repFeat);
             clusterNorm_repFeat = cluster_repFeat/swMedian;
             mwNorm_repFeat = mw_repFeat/swMedian;
-        end
-        % perform necessary feature calculations/conversions
-        if strcmp(feature,'pcf')
-            for frameCtr = 1:size(cluster_repFeat,2)
-                % concatenate pcf values (value set equal to the median of the containing bin) for each frame
-                pcfVal{frameCtr} = []; 
-                for binCtr = 1:numel(distBins)-1
-                    binVal = median([distBins(binCtr) distBins(binCtr+1)]); %
-                    pcfVal{frameCtr} = [pcfVal{frameCtr} ones(1,round(cluster_repFeat(binCtr,frameCtr)/1e4))*binVal];
-                end
-            end
-        end     
+        end 
         % populate variable with values
         if ~isempty(cluster_repFeat)
             cluster_featVals.(strain)(repCtr,1) = min(cluster_repFeat);

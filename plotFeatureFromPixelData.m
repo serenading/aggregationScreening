@@ -10,16 +10,16 @@ close all
 strainSet = 'all'; % 'controls','divergent','all'
 feature = 'ac'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'ac' (auto-correlation),'gf'(giant fluctuation).
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
-sampleFrameEveryNSec = 0.32; % 10 works for pcf and hc, multiples of 0.04 (= 1 frame at 25 fps) for ac
-sampleEveryNPixel = 8;
 saveResults = false;
-plotIndividualReps = true;
+plotIndividualReps = false;
 showFrame = false; % true if monitoring script running: display current downsized masked binary image as script runs
 makeDownSampledVid = false; % true if not monitoring script running: generate downsampled video to check afterwards that no obvious non-worm pixels are kept for analysis
 fitModel = true;
     
 % set feature-specific parameters
 if strcmp(feature,'hc')
+    sampleFrameEveryNSec = 10;
+    sampleEveryNPixel = 8; % 4,8,16 for hc
     featVarName = 'branchHeights';
     linkageMethod = 'single'; % 'single' (preferred), 'average','centroid','complete','median','weighted'
     histogramNormalisation = 'pdf'; % 'pdf' (preferred) or 'count'
@@ -42,6 +42,8 @@ if strcmp(feature,'hc')
         histBinWidth = 0.1;
     end
 elseif strcmp(feature,'pcf')
+    sampleFrameEveryNSec = 10;
+    sampleEveryNPixel = 1;
     featVarName = 'pcf';
     distBinWidth = 0.1; % in units of mm
     maxDist = 1.5; % in units of mm
@@ -51,16 +53,40 @@ elseif strcmp(feature,'pcf')
     yLabel = 'positional correlation g(r)';
     xLabel = 'distance r (mm)';
     figTitle = 'pair correlation function';
+    if fitModel
+        modelFun = {'exp1'}; % 'exp1' or 'exp2'
+    end
 elseif strcmp(feature,'ac')
+    sampleFrameEveryNSec = 0.32; % use multiples of 0.04 (= 1 frame/s at 25 fps). 0.32 = 3 frames/s
+    sampleEveryNPixel = 8;
     featVarName = 'ac';
     maxLag = 300; % maximum lag time in seconds; currently do not set maxLag > 900s, as script extracts frames from twice the duration so the final frame has a full lag time.
     yscale = 'linear';
     yLabel = 'correlation coefficient';
     xLabel = 'lag (frames)';
-    figTitle = 'image auto correlation';
+    figTitle = 'video auto correlation';
     xLim = [0 maxLag/sampleFrameEveryNSec];
     if fitModel
-        modelFun = {'power2'};
+        modelFun = {'mexp3'}; % 'mexp3','exp3' or 'power2'
+        if contains(modelFun, 'mexp3') % exp3 with offset
+            mexp3 = fittype('a*exp(b*x)+c*exp(d*x)+(1-a-c-f)*exp(e*x)+f');
+            fitOptions = fitoptions(mexp3);
+            fitOptions.Lower = [0 -0.2 0 -0.2 -0.2 0.05];
+            fitOptions.Upper = [1 0 1 0 0 0.3];
+            fitOptions.StartPoint = [0.5 -0.2 0.2 -0.02 -0.002 0.1];
+        elseif contains(modelFun,'exp3') % triple exponential
+            exp3 = fittype('a*exp(b*x)+c*exp(d*x)+(1-a-c)*exp(e*x)');
+            fitOptions = fitoptions(exp3);
+            fitOptions.Lower = [0 -0.2 0 -0.2 -0.2];
+            fitOptions.Upper = [1 0 1 0 0];
+            fitOptions.StartPoint = [0.33 -0.2 0.33 -0.02 -0.002];
+        elseif contains(modelFun, 'snexp2')
+            snexp2 = fittype('a*exp(-b*x^f)+c*exp(-d*x)+(1-a-c)'); % Stretched exponential and Normal exponential plus offset
+            fitOptions = fitoptions(snexp2);
+            fitOptions.Lower = [0 0 0 0 0];
+            fitOptions.Upper = [1 0.2 1 0.2 0.7];
+            fitOptions.StartPoint = [0.35 0.1 0.5 0.1 0.5];
+        end
     end
 elseif strcmp(feature,'gf')
 end
@@ -306,21 +332,44 @@ for strainCtr = 1:length(strains)
             if strcmp(feature, 'hc')
                 histogram(branchHeights.(strain){fileCtr},'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:),'BinWidth',histBinWidth)
             elseif strcmp(feature,'pcf')
+                x = distBins(2:end)-distBinWidth/2; x = x';
+                y = nanmean(pcf.(strain){fileCtr},2);
+                % plot(x,y,'Color',colorMap(strainCtr,:));
                 boundedline(distBins(2:end)-distBinWidth/2,nanmean(pcf.(strain){fileCtr},2),...
                     [nanstd(pcf.(strain){fileCtr},0,2) nanstd(pcf.(strain){fileCtr},0,2)]./sqrt(nnz(sum(~isnan(pcf.(strain){fileCtr}),2))),...
                     'alpha',featureFig.Children,'cmap',colorMap(strainCtr,:))
-            elseif strcmp(feature, 'ac')
-                y = nanmean(ac.(strain){fileCtr},1)';
-                x = 1:numel(y); x = x';
-                plot(x,y,'Color',colorMap(strainCtr,:))
-                %plot(mean(ac.(strain){fileCtr},1),'Color',colorMap(strainCtr,:))
                 if fitModel
-                    if ~isempty(y) & nnz(isnan(y))~=numel(x)
+                    if ~isempty(y) & nnz(isnan(y))~=numel(y)
                         set(0,'CurrentFigure',modelFig)
                         for modelCtr = 1:length(modelFun)
                             [f.(strain){fileCtr},gof.(strain){fileCtr}] = fit(x,y,modelFun{modelCtr}); % fit model function
                             subplot(1,ceil(length(modelFun)/1),modelCtr); hold on
-                            plot(x,y,'Marker','.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+                            plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+                            plot(x,f.(strain){fileCtr}(x),'Color',colorMap(strainCtr,:));
+                            title({modelFun{modelCtr},formula(f.(strain))})
+                        end
+                    end
+                end
+            elseif strcmp(feature, 'ac')
+                y = nanmean(ac.(strain){fileCtr},1)';
+                x = 0:numel(y)-1; x = x';
+                plot(x,y,'Color',colorMap(strainCtr,:))
+                if fitModel
+                    if ~isempty(y) & nnz(isnan(y))~=numel(x)
+                        set(0,'CurrentFigure',modelFig)
+                        for modelCtr = 1:length(modelFun)
+                            fitOptions.Weights = 1./sqrt(x+1);
+                            if strcmp(modelFun{modelCtr},'exp3') % exp3 is a custom model, i.e. not a library function
+                                [f.(strain){fileCtr},gof.(strain){fileCtr}] = fit(x,y,exp3,fitOptions); % fit model function
+                            elseif strcmp(modelFun{modelCtr},'mexp3')
+                                [f.(strain){fileCtr},gof.(strain){fileCtr}] = fit(x,y,mexp3,fitOptions);
+                            elseif strcmp(modelFun{modelCtr},'snexp2') 
+                                [f.(strain){fileCtr},gof.(strain){fileCtr}] = fit(x,y,snexp2,fitOptions); 
+                            else % library functions
+                                [f.(strain){fileCtr},gof.(strain){fileCtr}] = fit(x,y,modelFun{modelCtr});
+                            end
+                            subplot(1,ceil(length(modelFun)/1),modelCtr); hold on
+                            plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
                             plot(x,f.(strain){fileCtr}(x),'Color',colorMap(strainCtr,:));
                             title(modelFun{modelCtr})
                         end
@@ -342,28 +391,50 @@ for strainCtr = 1:length(strains)
     if strcmp(feature,'hc')
         histogram(branchHeights_pooled.(strain),'Normalization',histogramNormalisation,'DisplayStyle','stairs','EdgeColor',colorMap(strainCtr,:),'BinWidth',histBinWidth)
     elseif strcmp(feature,'pcf')
+        x = distBins(2:end)-distBinWidth/2; x = x';
+        y = nanmean(pcf_pooled.(strain),2);
+        % plot(x,y,'Marker','.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
         [lineHandles(strainCtr), ~] = boundedline(distBins(2:end)-distBinWidth/2,nanmean(pcf_pooled.(strain),2),...
             [nanstd(pcf_pooled.(strain),0,2) nanstd(pcf_pooled.(strain),0,2)]./sqrt(nnz(sum(~isnan(pcf_pooled.(strain)),2))),...
             'alpha',featurePooledFig.Children,'cmap',colorMap(strainCtr,:));
-    elseif strcmp(feature,'ac')
-        y = nanmean(ac_pooled.(strain),1)';
-        x = 1:numel(y); x = x';
-        plot(x,y,'Color',colorMap(strainCtr,:));
         if fitModel
             set(0,'CurrentFigure',modelPooledFig)
             for modelCtr = 1:length(modelFun)
                 [f_pooled.(strain),gof_pooled.(strain)] = fit(x,y,modelFun{modelCtr}); % fit model function
                 subplot(1,ceil(length(modelFun)/1),modelCtr); hold on
-                plot(x,y,'Marker','.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+                plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
                 plot(x,f_pooled.(strain)(x),'Color',colorMap(strainCtr,:));
-                title(modelFun{modelCtr})
+                title({modelFun{modelCtr},formula(f_pooled.(strain))})
+            end
+        end
+    elseif strcmp(feature,'ac')
+        y = nanmean(ac_pooled.(strain),1)';
+        x = 0:numel(y)-1; x = x';
+        plot(x,y,'Color',colorMap(strainCtr,:));
+        if fitModel
+            set(0,'CurrentFigure',modelPooledFig)
+            fitOptions.Weights = 1./sqrt(x+1);
+            for modelCtr = 1:length(modelFun)
+                if strcmp(modelFun{modelCtr},'exp3') % exp3 is a custom model, i.e. not a library function
+                    [f_pooled.(strain),gof_pooled.(strain)] = fit(x,y,exp3,fitOptions); % fit model function
+                elseif strcmp(modelFun{modelCtr},'mexp3') 
+                    [f_pooled.(strain),gof_pooled.(strain)] = fit(x,y,mexp3,fitOptions); 
+                elseif strcmp(modelFun{modelCtr},'snexp2') 
+                    [f_pooled.(strain),gof_pooled.(strain)] = fit(x,y,snexp2,fitOptions); 
+                else % library functions
+                    [f_pooled.(strain),gof_pooled.(strain)] = fit(x,y,modelFun{modelCtr});
+                end
+                subplot(1,ceil(length(modelFun)/1),modelCtr); hold on
+                plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+                plot(x,f_pooled.(strain)(x),'Color',colorMap(strainCtr,:));
+                title({modelFun{modelCtr},formula(f_pooled.(strain))})
             end
         end
     end
 end
 
 %% save model fitting variable
-if saveResults
+%if saveResults
     if fitModel
         if length(modelFun) == 1
             save(['results/modelFit/' feature '_' strainSet '_fitmodel_' modelFun{1} '_' featVarName '_Pooled_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat'],'f_pooled','gof_pooled')
@@ -372,13 +443,14 @@ if saveResults
             end
         end
     end
-end
+%end
 
 %% format and export
 set(featurePooledFig,'PaperUnits','centimeters')
 set(0,'CurrentFigure',featurePooledFig)
 if strcmp(feature,'pcf')
-    legend(featurePooledFig.Children,lineHandles,legends,'Location','eastoutside')
+    % legend(featurePooledFig.Children,lineHandles,legends,'Location','eastoutside') % boundedline plot
+    legend(legends,'Location','eastoutside') % model fitting plot
 else
     legend(legends,'Location','eastoutside')
 end
@@ -416,7 +488,7 @@ if fitModel
     set(0,'CurrentFigure',modelPooledFig)
     xlabel(xLabel)
     ylabel(yLabel)
-    if saveResults
+    %if saveResults
         if length(modelFun) == 1
             figurename = ['figures/modelFit/' feature '_' strainSet '_fitmodel_' modelFun{1} '_' featVarName '_Pooled_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel'];
         else
@@ -430,7 +502,7 @@ if fitModel
             'FontSize',20,...
             'LineWidth',2);
         exportfig(modelPooledFig,[figurename '.eps'],exportOptions2)
-    end
+    %end
     if plotIndividualReps
         set(modelFig,'PaperUnits','centimeters')
         set(0,'CurrentFigure',modelFig)

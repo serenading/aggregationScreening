@@ -8,10 +8,10 @@ close all
 
 %% set parameters
 % set analysis parameters
-strainSet = 'divergent'; % 'controls','divergent','all'
+strainSet = 'controls'; % 'controls','divergent','all'
 feature = 'perdurance'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
 saveResults = false;
-maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
+maxNumReplicates = 15; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 plotIndividualReps = false;
 
 % set default parameters
@@ -35,6 +35,16 @@ elseif strcmp(feature,'perdurance')
     applySwNormalisation = false; % this feature should not be normalised against single worm
     yscale = 'log';
     histogramXLim = [0 600]; %[0 15000];
+    fitModel = false;
+    if fitModel
+        modelFun = {'exp3'}; 
+        if contains(modelFun,'exp3')
+            exp3 = fittype('a*exp(b*x)+c*exp(d*x)+e*exp(f*x)');
+            exp3Options = fitoptions(exp3);
+            exp3Options.Lower = [0 -1 0 -1 0 -1];
+            exp3Options.Upper = [1 0 1 0 1 0];
+        end
+    end
 elseif strcmp(feature,'speed')
     unit = ' (\mum/s)'; % microns per second
     applySwNormalisation = true;
@@ -101,7 +111,13 @@ if strcmp(feature,'perdurance')
     swPerduranceSurvivalCurveFig = figure; hold on
     mwPerduranceSurvivalCurveFig = figure; hold on
     clusterPerduranceSurvivalCurveFig = figure; hold on
+    if fitModel
+        swModelPooledFig = figure; hold on
+        mwModelPooledFig = figure; hold on
+        clusterModelPooledFig = figure; hold on
+    end
 end
+
 % create legend variable to hold strain name and experiment n numbers
 legends = cell(size(strains));
 
@@ -485,19 +501,64 @@ if strcmp(feature,'perdurance')
         [ecdfy,ecdfx] = ecdf(sw_perdDist.(strain)); 
         plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
         %ecdf(swFrameDist.(strain),'function','survivor','alpha',0.01,'bounds','on')
-        hold on
+        if fitModel
+            x = ecdfx; y = 1-ecdfy; 
+            if ~isempty(y) & nnz(isnan(y))~=numel(y)
+                set(0,'CurrentFigure',swModelPooledFig)
+                for modelCtr = 1:length(modelFun)
+                    if ~strcmp(modelFun, 'exp3')
+                        [sw_f_pooled.(strain),sw_gof_pooled.(strain)] = fit(x,y,modelFun{modelCtr}); % fit model function
+                    else
+                        [sw_f_pooled.(strain),sw_gof_pooled.(strain)] = fit(x,y,exp3,exp3Options); % fit model function
+                    end
+                    plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+                    plot(x,sw_f_pooled.(strain)(x),'Color',colorMap(strainCtr,:));
+                    title(['swPerduranceSurvival ' modelFun{modelCtr}])
+                end
+            end
+        end
         
         set(0,'CurrentFigure',mwPerduranceSurvivalCurveFig)
         [ecdfy,ecdfx] = ecdf(mw_perdDist.(strain));
         plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
         %ecdf(mwFrameDist.(strain),'function','survivor','alpha',0.01,'bounds','on')
-        hold on
+        if fitModel
+            x = ecdfx; y = 1-ecdfy;
+            if ~isempty(y) & nnz(isnan(y))~=numel(y)
+                set(0,'CurrentFigure',mwModelPooledFig)
+                for modelCtr = 1:length(modelFun)
+                    if ~strcmp(modelFun,'exp3')
+                        [mw_f_pooled.(strain),mw_gof_pooled.(strain)] = fit(x,y,modelFun{modelCtr}); % fit model function
+                    else
+                        [mw_f_pooled.(strain),mw_gof_pooled.(strain)] = fit(x,y,exp3,exp3Options); % fit model function
+                    end
+                    plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+                    plot(x,mw_f_pooled.(strain)(x),'Color',colorMap(strainCtr,:));
+                    title(['mwPerduranceSurvival ' modelFun{modelCtr}])
+                end
+            end
+        end
         
         set(0,'CurrentFigure',clusterPerduranceSurvivalCurveFig)
         [ecdfy,ecdfx] = ecdf(cluster_perdDist.(strain));
         plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
         %ecdf(clusterFrameDist.(strain),'function','survivor','alpha',0.01,'bounds','on')
-        hold on
+        if fitModel
+            x = ecdfx; y = 1-ecdfy;
+            if ~isempty(y) & nnz(isnan(y))~=numel(y)
+                set(0,'CurrentFigure',clusterModelPooledFig)
+                for modelCtr = 1:length(modelFun)
+                    if ~strcmp(modelFun,'exp3')
+                        [cluster_f_pooled.(strain),cluster_gof_pooled.(strain)] = fit(x,y,modelFun{modelCtr}); % fit model function
+                    else
+                        [cluster_f_pooled.(strain),cluster_gof_pooled.(strain)] = fit(x,y,exp3,exp3Options); % fit model function
+                    end
+                    plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+                    plot(x,cluster_f_pooled.(strain)(x),'Color',colorMap(strainCtr,:));
+                    title(['clusterPerduranceSurvival ' modelFun{modelCtr}])
+                end
+            end
+        end              
     end
     
     % format survival plots
@@ -535,5 +596,43 @@ if strcmp(feature,'perdurance')
     figurename = ['figures/' feature 'Survival_' strainSet '_cluster_Pooled_' yscale];
     if saveResults
         exportfig(clusterPerduranceSurvivalCurveFig,[figurename '.eps'],exportOptions)
+    end
+    
+    if fitModel
+        set(0,'CurrentFigure',swModelPooledFig)
+        set(gca, 'YScale', yscale)
+        title(['single worm ' feature ' survival'])
+        xlabel('time elapsed (s)')
+        ylabel('remaining proportion')
+        xlim(histogramXLim)
+        legend(legends,'Location','eastoutside')
+        figurename = ['figures/modelFit' feature 'Survival_' strainSet '_fitmodel' modelFun{1} '_sw_Pooled_' yscale];
+        if saveResults
+            exportfig(swModelPooledFig,[figurename '.eps'],exportOptions)
+        end
+        
+        set(0,'CurrentFigure',mwModelPooledFig)
+        set(gca, 'YScale', yscale)
+        title(['multi worm ' feature ' survival'])
+        xlabel('time elapsed (s)')
+        ylabel('remaining proportion')
+        xlim(histogramXLim)
+        legend(legends,'Location','eastoutside')
+        figurename = ['figures/modelFit' feature 'Survival_' strainSet '_fitmodel' modelFun{1} '_mw_Pooled_' yscale];
+        if saveResults
+            exportfig(mwModelPooledFig,[figurename '.eps'],exportOptions)
+        end
+        
+        set(0,'CurrentFigure',clusterModelPooledFig)
+        set(gca, 'YScale', yscale)
+        title(['cluster ' feature ' survival'])
+        xlabel('time elapsed (s)')
+        ylabel('remaining proportion')
+        xlim(histogramXLim)
+        legend(legends,'Location','eastoutside')
+        figurename = ['figures/modelFit' feature 'Survival_' strainSet '_fitmodel' modelFun{1} '_cluster_Pooled_' yscale];
+        if saveResults
+            exportfig(clusterModelPooledFig,[figurename '.eps'],exportOptions)
+        end
     end
 end
