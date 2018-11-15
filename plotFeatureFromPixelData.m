@@ -1,9 +1,10 @@
 clear
 close all
 
-%% script works with bright field wild isolate aggregation screening dataset to
-% extracts features for each of the strains of interest based on downsampled pixel data,
-% and plots a distribution for each strain.
+%% script works with bright field wild isolate aggregation screening dataset (40 worms) to
+% extract features for each of the strains of interest based on downsampled pixel data (options to show downsampled frame and make video);
+% plot a distribution for each strain; 
+% and (optionally) fit a function to the distribution (i.e. exponential decay function of pcf)
 
 %% set parameterslegends
 % set analysis parameters

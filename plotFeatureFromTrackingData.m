@@ -1,17 +1,18 @@
 clear
 close all
 
-%% script works with bright field wild isolate aggregation screening dataset to
-% extract or calculate single worm, multi worm, and cluster features for each of the strains of interest,
-% normalise mw and cluster features against corresponding sw feature within each replicate (if specified),
+%% script works with bright field wild isolate aggregation screening dataset (40 or 5 worms) to
+% extract or calculate single worm, multi worm, and cluster features for each of the strains of interest;
+% normalise mw and cluster features against corresponding sw feature within each replicate (if specified);
 % and plots a distribution (and any additional feature-specific plot) for each strain.
 
 %% set parameters
 % set analysis parameters
-strainSet = 'controls'; % 'controls','divergent','all'
+strainSet = 'divergent'; % 'controls','divergent','all'
+wormNum = '5'; % '40' or '5'
 feature = 'perdurance'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
-saveResults = false;
-maxNumReplicates = 15; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
+saveResults = true;
+maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 plotIndividualReps = false;
 
 % set default parameters
@@ -35,19 +36,9 @@ elseif strcmp(feature,'perdurance')
     applySwNormalisation = false; % this feature should not be normalised against single worm
     yscale = 'log';
     histogramXLim = [0 600]; %[0 15000];
-    fitModel = false;
-    if fitModel
-        modelFun = {'exp3'}; 
-        if contains(modelFun,'exp3')
-            exp3 = fittype('a*exp(b*x)+c*exp(d*x)+e*exp(f*x)');
-            exp3Options = fitoptions(exp3);
-            exp3Options.Lower = [0 -1 0 -1 0 -1];
-            exp3Options.Upper = [1 0 1 0 1 0];
-        end
-    end
 elseif strcmp(feature,'speed')
     unit = ' (\mum/s)'; % microns per second
-    applySwNormalisation = true;
+    applySwNormalisation = false;
     histogramXLimNorm = [0 3];
     histogramXLim = [0 400];
     yscale = 'log';
@@ -111,11 +102,6 @@ if strcmp(feature,'perdurance')
     swPerduranceSurvivalCurveFig = figure; hold on
     mwPerduranceSurvivalCurveFig = figure; hold on
     clusterPerduranceSurvivalCurveFig = figure; hold on
-    if fitModel
-        swModelPooledFig = figure; hold on
-        mwModelPooledFig = figure; hold on
-        clusterModelPooledFig = figure; hold on
-    end
 end
 
 % create legend variable to hold strain name and experiment n numbers
@@ -123,21 +109,33 @@ legends = cell(size(strains));
 
 
 %% calculate features only if they haven't already been calculated and stored
-if strcmp(feature, 'speed')
-    loadResultName = ['/Users/sding/Documents/AggScreening/results/' feature '_all_smooth' num2str(speedSmoothFactorInSec) 's.mat'];
-else
-    loadResultName = ['/Users/sding/Documents/AggScreening/results/' feature '_all.mat'];
+if strcmp(wormNum,'5')
+    if strcmp(feature, 'speed')
+        loadResultName = ['/Users/sding/Documents/AggScreening/results/' wormNum 'worm_' feature '_all_smooth' num2str(speedSmoothFactorInSec) 's.mat'];
+    else
+        loadResultName = ['/Users/sding/Documents/AggScreening/results/' wormNum 'worm_' feature '_all.mat'];
+    end
+else % 40 worm data does not wormNum included in file name
+    if strcmp(feature, 'speed')
+        loadResultName = ['/Users/sding/Documents/AggScreening/results/' feature '_all_smooth' num2str(speedSmoothFactorInSec) 's.mat'];
+    else
+        loadResultName = ['/Users/sding/Documents/AggScreening/results/' feature '_all.mat'];
+    end
 end
 
 try load(loadResultName) % try opening saved values
     if strcmp(feature,'perdurance')
-        load ('results/perduranceSurvival_all.mat')
+        if ~strcmp(wormNum,'5')
+            load ('results/perduranceSurvival_all.mat')
+        else
+            load(['results/' wormNum 'worm_perduranceSurvival_all.mat'])
+        end
     end
 catch % calculate features only if saved values don't exist
     %% go through each strain
     for strainCtr = 1:length(strains)
         strain = strains{strainCtr};
-        filenames = strainFileList.([strain 'List_40']);
+        filenames = strainFileList.([strain 'List_' wormNum]);
         % if there are many files, then subsample recordings without replacement
         if length(filenames)>maxNumReplicates
             fileInd = datasample(1:length(filenames),maxNumReplicates,'Replace',false);
@@ -153,6 +151,7 @@ catch % calculate features only if saved values don't exist
         %% go through each recording
         for fileCtr = 1:length(fileInd)
             %% load data
+            [strainCtr fileCtr]
             filename = filenames{fileInd(fileCtr)};
             trajData = h5read(filename,'/trajectories_data');
             blobFeats = h5read(filename,'/blob_features');
@@ -225,13 +224,13 @@ catch % calculate features only if saved values don't exist
     if saveResults
         if strcmp(strainSet, 'all')
             if strcmp(feature,'speed')
-                saveResultName = ['results/' feature '_' strainSet '_smooth' num2str(speedSmoothFactorInSec) 's.mat'];
+                saveResultName = ['results/' wormNum 'worm_' feature '_' strainSet '_smooth' num2str(speedSmoothFactorInSec) 's.mat'];
             else
-                saveResultName = ['results/' feature '_' strainSet '.mat'];
+                saveResultName = ['results/' wormNum 'worm_' feature '_' strainSet '.mat'];
             end
             save(saveResultName,'sw_feature','mw_feature','cluster_feature')
             if strcmp(feature, 'perdurance')
-                save(['results/perduranceSurvival_' strainSet '.mat'],'sw_perdDist','mw_perdDist','cluster_perdDist')
+                save(['results/' wormNum 'worm_perduranceSurvival_' strainSet '.mat'],'sw_perdDist','mw_perdDist','cluster_perdDist')
             end
         end
     end
@@ -241,7 +240,7 @@ end
 %% go through each strain
 for strainCtr = 1:length(strains)
     strain = strains{strainCtr};
-    filenames = strainFileList.([strain 'List_40']);
+    filenames = strainFileList.([strain 'List_' wormNum]);
     % if there are many files, then subsample recordings without replacement
     if length(filenames)>maxNumReplicates
         fileInd = datasample(1:length(filenames),maxNumReplicates,'Replace',false);
@@ -317,11 +316,10 @@ legend(legends,'Location','eastoutside')
 title(['single worm ' feature])
 xlabel([feature unit])
 ylabel(histogramNormalisationText)
-
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
-figurename = ['figures/' feature '_' strainSet '_sw_Pooled_' yscale];
+figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_sw_Pooled_' yscale];
 if saveResults
     exportfig(sw_featurePooledFig,[figurename '.eps'],exportOptions)
 end
@@ -336,7 +334,7 @@ ylabel(histogramNormalisationText)
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
-figurename = ['figures/' feature '_' strainSet '_mw_Pooled_' yscale];
+figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_mw_Pooled_' yscale];
 if saveResults
     exportfig(mw_featurePooledFig,[figurename '.eps'],exportOptions)
 end
@@ -351,7 +349,7 @@ ylabel(histogramNormalisationText)
 if exist('histogramXLim')
     xlim(histogramXLim)
 end
-figurename = ['figures/' feature '_' strainSet '_cluster_Pooled_' yscale];
+figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_cluster_Pooled_' yscale];
 if saveResults
     exportfig(cluster_featurePooledFig,[figurename '.eps'],exportOptions)
 end
@@ -367,7 +365,7 @@ if applySwNormalisation
     if exist('histogramXLimNorm')
         xlim(histogramXLimNorm)
     end
-    figurename = ['figures/' feature '_' strainSet '_mwNorm_Pooled_' yscale];
+    figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_mwNorm_Pooled_' yscale];
     if saveResults
         exportfig(mwNorm_featurePooledFig,[figurename '.eps'],exportOptions)
     end
@@ -382,7 +380,7 @@ if applySwNormalisation
     if exist('histogramXLimNorm')
         xlim(histogramXLimNorm)
     end
-    figurename = ['figures/' feature '_' strainSet '_clusterNorm_Pooled_' yscale];
+    figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_clusterNorm_Pooled_' yscale];
     if saveResults
         exportfig(clusterNorm_featurePooledFig,[figurename '.eps'],exportOptions)
     end
@@ -404,7 +402,7 @@ if plotIndividualReps
     if exist('histogramXLim')
         xlim(histogramXLim)
     end
-    figurename = ['figures/' feature '_' strainSet '_sw_' yscale];
+    figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_sw_' yscale];
     if saveResults
         exportfig(sw_featureFig,[figurename '.eps'],exportOptions)
     end
@@ -423,7 +421,7 @@ if plotIndividualReps
     if exist('histogramXLim')
         xlim(histogramXLim)
     end
-    figurename = ['figures/' feature '_' strainSet '_mw_' yscale];
+    figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_mw_' yscale];
     if saveResults
         exportfig(mw_featureFig,[figurename '.eps'],exportOptions)
     end
@@ -442,7 +440,7 @@ if plotIndividualReps
     if exist('histogramXLim')
         xlim(histogramXLim)
     end
-    figurename = ['figures/' feature '_' strainSet '_cluster_' yscale];
+    figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_cluster_' yscale];
     if saveResults
         exportfig(cluster_featureFig,[figurename '.eps'],exportOptions)
     end
@@ -463,7 +461,7 @@ if plotIndividualReps
             if exist('histogramXLimNorm')
                 xlim(histogramXLimNorm)
             end
-            figurename = ['figures/' feature '_' strainSet '_mwNorm_' yscale];
+            figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_mwNorm_' yscale];
             if saveResults
                 exportfig(mwNorm_featureFig,[figurename '.eps'],exportOptions)
             end
@@ -483,7 +481,7 @@ if plotIndividualReps
         if exist('histogramXLimNorm')
             xlim(histogramXLimNorm)
         end
-        figurename = ['figures/' feature '_' strainSet '_clusterNorm_' yscale];
+        figurename = ['figures/' wormNum 'worm_' feature '_' strainSet '_clusterNorm_' yscale];
         if saveResults
             exportfig(clusterNorm_featureFig,[figurename '.eps'],exportOptions)
         end
@@ -498,67 +496,19 @@ if strcmp(feature,'perdurance')
         strain = strains{strainCtr};
         
         set(0,'CurrentFigure',swPerduranceSurvivalCurveFig)
-        [ecdfy,ecdfx] = ecdf(sw_perdDist.(strain)); 
+        [ecdfy,ecdfx] = ecdf(sw_perdDist.(strain));
         plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
         %ecdf(swFrameDist.(strain),'function','survivor','alpha',0.01,'bounds','on')
-        if fitModel
-            x = ecdfx; y = 1-ecdfy; 
-            if ~isempty(y) & nnz(isnan(y))~=numel(y)
-                set(0,'CurrentFigure',swModelPooledFig)
-                for modelCtr = 1:length(modelFun)
-                    if ~strcmp(modelFun, 'exp3')
-                        [sw_f_pooled.(strain),sw_gof_pooled.(strain)] = fit(x,y,modelFun{modelCtr}); % fit model function
-                    else
-                        [sw_f_pooled.(strain),sw_gof_pooled.(strain)] = fit(x,y,exp3,exp3Options); % fit model function
-                    end
-                    plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
-                    plot(x,sw_f_pooled.(strain)(x),'Color',colorMap(strainCtr,:));
-                    title(['swPerduranceSurvival ' modelFun{modelCtr}])
-                end
-            end
-        end
         
-        set(0,'CurrentFigure',mwPerduranceSurvivalCurveFig)
-        [ecdfy,ecdfx] = ecdf(mw_perdDist.(strain));
-        plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
-        %ecdf(mwFrameDist.(strain),'function','survivor','alpha',0.01,'bounds','on')
-        if fitModel
-            x = ecdfx; y = 1-ecdfy;
-            if ~isempty(y) & nnz(isnan(y))~=numel(y)
-                set(0,'CurrentFigure',mwModelPooledFig)
-                for modelCtr = 1:length(modelFun)
-                    if ~strcmp(modelFun,'exp3')
-                        [mw_f_pooled.(strain),mw_gof_pooled.(strain)] = fit(x,y,modelFun{modelCtr}); % fit model function
-                    else
-                        [mw_f_pooled.(strain),mw_gof_pooled.(strain)] = fit(x,y,exp3,exp3Options); % fit model function
-                    end
-                    plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
-                    plot(x,mw_f_pooled.(strain)(x),'Color',colorMap(strainCtr,:));
-                    title(['mwPerduranceSurvival ' modelFun{modelCtr}])
-                end
-            end
+        if ~strcmp(wormNum,'5')
+            set(0,'CurrentFigure',mwPerduranceSurvivalCurveFig)
+            [ecdfy,ecdfx] = ecdf(mw_perdDist.(strain));
+            plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
+            
+            set(0,'CurrentFigure',clusterPerduranceSurvivalCurveFig)
+            [ecdfy,ecdfx] = ecdf(cluster_perdDist.(strain));
+            plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
         end
-        
-        set(0,'CurrentFigure',clusterPerduranceSurvivalCurveFig)
-        [ecdfy,ecdfx] = ecdf(cluster_perdDist.(strain));
-        plot(ecdfx,1-ecdfy,'Color',colorMap(strainCtr,:)) % gives a smoother curve than the survival function
-        %ecdf(clusterFrameDist.(strain),'function','survivor','alpha',0.01,'bounds','on')
-        if fitModel
-            x = ecdfx; y = 1-ecdfy;
-            if ~isempty(y) & nnz(isnan(y))~=numel(y)
-                set(0,'CurrentFigure',clusterModelPooledFig)
-                for modelCtr = 1:length(modelFun)
-                    if ~strcmp(modelFun,'exp3')
-                        [cluster_f_pooled.(strain),cluster_gof_pooled.(strain)] = fit(x,y,modelFun{modelCtr}); % fit model function
-                    else
-                        [cluster_f_pooled.(strain),cluster_gof_pooled.(strain)] = fit(x,y,exp3,exp3Options); % fit model function
-                    end
-                    plot(x,y,'.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
-                    plot(x,cluster_f_pooled.(strain)(x),'Color',colorMap(strainCtr,:));
-                    title(['clusterPerduranceSurvival ' modelFun{modelCtr}])
-                end
-            end
-        end              
     end
     
     % format survival plots
@@ -569,70 +519,34 @@ if strcmp(feature,'perdurance')
     ylabel('remaining proportion')
     xlim(histogramXLim)
     legend(legends,'Location','eastoutside')
-    figurename = ['figures/' feature 'Survival_' strainSet '_sw_Pooled_' yscale];
+    figurename = ['figures/' wormNum 'worm_' feature 'Survival_' strainSet '_sw_Pooled_' yscale];
     if saveResults
         exportfig(swPerduranceSurvivalCurveFig,[figurename '.eps'],exportOptions)
     end
     
-    set(0,'CurrentFigure',mwPerduranceSurvivalCurveFig)
-    set(gca, 'YScale', yscale)
-    title(['multi worm ' feature ' survival'])
-    xlabel('time elapsed (s)')
-    ylabel('remaining proportion')
-    xlim(histogramXLim/2)
-    legend(legends,'Location','eastoutside')
-    figurename = ['figures/' feature 'Survival_' strainSet '_mw_Pooled_' yscale];
-    if saveResults
-        exportfig(mwPerduranceSurvivalCurveFig,[figurename '.eps'],exportOptions)
-    end
-    
-    set(0,'CurrentFigure',clusterPerduranceSurvivalCurveFig)
-    set(gca, 'YScale', yscale)
-    title(['cluster ' feature ' survival'])
-    xlabel('time elapsed (s)')
-    ylabel('remaining proportion')
-    xlim(histogramXLim/2)
-    legend(legends,'Location','eastoutside')
-    figurename = ['figures/' feature 'Survival_' strainSet '_cluster_Pooled_' yscale];
-    if saveResults
-        exportfig(clusterPerduranceSurvivalCurveFig,[figurename '.eps'],exportOptions)
-    end
-    
-    if fitModel
-        set(0,'CurrentFigure',swModelPooledFig)
-        set(gca, 'YScale', yscale)
-        title(['single worm ' feature ' survival'])
-        xlabel('time elapsed (s)')
-        ylabel('remaining proportion')
-        xlim(histogramXLim)
-        legend(legends,'Location','eastoutside')
-        figurename = ['figures/modelFit' feature 'Survival_' strainSet '_fitmodel' modelFun{1} '_sw_Pooled_' yscale];
-        if saveResults
-            exportfig(swModelPooledFig,[figurename '.eps'],exportOptions)
-        end
-        
-        set(0,'CurrentFigure',mwModelPooledFig)
+    if ~strcmp(wormNum,'5')
+        set(0,'CurrentFigure',mwPerduranceSurvivalCurveFig)
         set(gca, 'YScale', yscale)
         title(['multi worm ' feature ' survival'])
         xlabel('time elapsed (s)')
         ylabel('remaining proportion')
-        xlim(histogramXLim)
+        xlim(histogramXLim/2)
         legend(legends,'Location','eastoutside')
-        figurename = ['figures/modelFit' feature 'Survival_' strainSet '_fitmodel' modelFun{1} '_mw_Pooled_' yscale];
+        figurename = ['figures/' wormNum 'worm_' feature 'Survival_' strainSet '_mw_Pooled_' yscale];
         if saveResults
-            exportfig(mwModelPooledFig,[figurename '.eps'],exportOptions)
+            exportfig(mwPerduranceSurvivalCurveFig,[figurename '.eps'],exportOptions)
         end
         
-        set(0,'CurrentFigure',clusterModelPooledFig)
+        set(0,'CurrentFigure',clusterPerduranceSurvivalCurveFig)
         set(gca, 'YScale', yscale)
         title(['cluster ' feature ' survival'])
         xlabel('time elapsed (s)')
         ylabel('remaining proportion')
-        xlim(histogramXLim)
+        xlim(histogramXLim/2)
         legend(legends,'Location','eastoutside')
-        figurename = ['figures/modelFit' feature 'Survival_' strainSet '_fitmodel' modelFun{1} '_cluster_Pooled_' yscale];
+        figurename = ['figures/' wormNum 'worm_' feature 'Survival_' strainSet '_cluster_Pooled_' yscale];
         if saveResults
-            exportfig(clusterModelPooledFig,[figurename '.eps'],exportOptions)
+            exportfig(clusterPerduranceSurvivalCurveFig,[figurename '.eps'],exportOptions)
         end
     end
 end
