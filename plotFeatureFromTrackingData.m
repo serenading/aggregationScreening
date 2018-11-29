@@ -11,14 +11,14 @@ close all
 strainSet = 'divergent'; % 'controls','divergent','all'
 wormNum = '5'; % '40' or '5'
 feature = 'perdurance'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
-saveResults = true;
+saveResults = false;
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 plotIndividualReps = false;
 
 % set default parameters
 clusterArea = 4; % 4 by default
 phaseRestrict = true; % phaseRestrict cuts out the first 15 min of each video
-pixelToMicron = 10; % 10 microns per pixel, read by pixelsize = double(h5readatt(filename,'/trajectories_data','microns_per_pixel?))
+pixelToMicron = 10; % 10 microns per pixel, read by pixelsize = double(h5readatt(filename,'/trajectories_data','microns_per_pixel'))
 histogramNormalisation = 'pdf'; % 'pdf' by default. 'probability' and 'count' options
 if strcmp(histogramNormalisation,'pdf')
     histogramNormalisationText = 'probability density function';

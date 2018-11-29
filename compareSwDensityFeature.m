@@ -1,21 +1,33 @@
 clear
 close all
 
+%% Script reads saved feature data (Tierpsy sw features or other calculated features)
+% to assess density-dependent (40 vs. 5 worms) effects on single worm features.
+% Script exports relevant feature for mapping.
+
+
+%% set parameters
 strainSet = 'all'; % 'controls','divergent','all'
-feature = 'food'; % 'speed','food'
-applyBonferroniCorrection = false;
+feature = 'speed'; % 'speed_nonTierpsy','food','blob','eigen','width','length','area','axis','speed','velocity','curvature'
+applyBonferroniCorrection = true;
 saveResults = true;
 
-if strcmp(feature, 'speed')
+%% default parameters
+useTierpsyFeat = true;
+if strcmp(feature, 'speed_nonTierpsy')
     useTierpsyFeat = false;
-elseif strcmp(feature, 'food')
-    useTierpsyFeat = true;
 end
 
 if useTierpsyFeat
-    metricRange = 4;
+    metricRange = 4; % use 4 (default) for median values of Tierpsy features; use 5 for mean
 else
     metricRange = [1:9];
+end
+
+if applyBonferroniCorrection
+    mappingStrainNumThreshold = 20; % threshold only used for Tierpsy features - num of strains showing density-dependent difference 
+else
+    mappingStrainNumThreshold = 40;
 end
 
 %% prep work
@@ -38,7 +50,7 @@ if useTierpsyFeat
     % get feature list
     featList = sw40_feature.(strains{1})(:,1);
 else
-    if strcmp(feature,'speed')
+    if strcmp(feature,'speed_nonTierpsy')
         % load feature values
         load('results/speed_all_smooth3s.mat')
         sw40_feature = sw_feature;
@@ -57,19 +69,23 @@ for featCtr = 1:numFeats
     % through each strain
     for strainCtr = 1:length(strains)
         strain = strains{strainCtr};
-        if useTierpsyFeat
-            sw40_feature.(strain) = (sw40_feature.(strain)(:,2:end));  % remove first column containing feature names
-            sw5_feature.(strain) = (sw5_feature.(strain)(:,2:end));
-        end
-        num40Files = size(sw40_feature.(strain),2);
+        num40Files = size(sw40_feature.(strain),2); % -1 because first column contains feature name
         num5Files = size(sw5_feature.(strain),2);
+        if useTierpsyFeat
+            num40Files = num40Files-1; % -1 because first column contains feature name
+            num5Files = num5Files-1;
+        end
         % initialise 3D matrix to hold feature metric values
         featVals_40.(strain) = NaN(num40Files,9);
         featVals_5.(strain) = NaN(num5Files,9);
         % populate matrix with variables
         % (different metrics in columns will look the same for Tierpsy features as only plate average is available)
         for repCtr = 1:num40Files
-            featThisRep_40 = sw40_feature.(strain){featCtr,repCtr};
+            if useTierpsyFeat
+                featThisRep_40 = sw40_feature.(strain){featCtr,repCtr+1}; % +1 because first column contains feature name
+            else
+                featThisRep_40 = sw40_feature.(strain){featCtr,repCtr};
+            end
             if ~isempty(featThisRep_40)
                 featVals_40.(strain)(repCtr,1) = min(featThisRep_40);
                 featVals_40.(strain)(repCtr,2) = prctile(featThisRep_40,10);
@@ -83,7 +99,11 @@ for featCtr = 1:numFeats
             end
         end
         for repCtr = 1:num5Files
-            featThisRep_5 = sw5_feature.(strain){featCtr,repCtr};
+            if useTierpsyFeat
+                featThisRep_5 = sw5_feature.(strain){featCtr,repCtr+1};
+            else
+                featThisRep_5 = sw5_feature.(strain){featCtr,repCtr};
+            end
             if ~isempty(featThisRep_5)
                 featVals_5.(strain)(repCtr,1) = min(featThisRep_5);
                 featVals_5.(strain)(repCtr,2) = prctile(featThisRep_5,10);
@@ -137,7 +157,7 @@ for featCtr = 1:numFeats
     headingText = {'strain', 'min','10prc','25prc','median','mean','75prc','90prc','max','iqr'};
     pVals = vertcat(headingText,pVals);
     medianDiff = vertcat(headingText,medianDiff);
-    % trim down for Tierpsy features
+    % trim down for Tierpsy features (keep only the median)
     if useTierpsyFeat
         assert(numel(metricRange)==1)
         pVals = pVals(:,[1,metricRange+1]);
@@ -147,7 +167,7 @@ for featCtr = 1:numFeats
     if saveResults
         dirName = 'results/swDensityCompare/';
         if useTierpsyFeat
-            dirName = [dirName 'Tierpsy/'];
+            dirName = [dirName 'Tierpsy/' feature '/'];
         end
         saveFileName = strcat(dirName, featList{featCtr}, '_all');
         if applyBonferroniCorrection
@@ -159,13 +179,21 @@ for featCtr = 1:numFeats
         save(strcat(saveFileName, '.mat'),'pVals');
         % 
         if useTierpsyFeat
-            featpValExportName = strcat('results/mapping/swDensityCompare/Tierpsy/', featList{featCtr}, '_medianDiff_all.txt');
-            if applyBonferroniCorrection & significantStrainCtr >= 5 
+            featpValExportName = strcat('results/mapping/swDensityCompare/Tierpsy/', feature, '/', featList{featCtr}, '_medianDiff_all.txt');
+            % remove DA609 from mapping
+            removeIdx = find(strcmp(medianDiff(:,1),'DA609')); % should be 18
+            medianDiff = vertcat(medianDiff(1:removeIdx-1,:),medianDiff(removeIdx+1:end,:));
+            % export
+            if applyBonferroniCorrection & significantStrainCtr >= mappingStrainNumThreshold 
                 dlmcell(featpValExportName,medianDiff);
-            elseif ~applyBonferroniCorrection & significantStrainCtr >= 10
+            elseif ~applyBonferroniCorrection & significantStrainCtr >= mappingStrainNumThreshold
                 dlmcell(featpValExportName,medianDiff);
             end
         else
+            % remove DA609 from mapping
+            removeIdx = find(strcmp(medianDiff(:,1),'DA609')); % should be 18
+            medianDiff = vertcat(medianDiff(1:removeIdx-1,:),medianDiff(removeIdx+1:end,:));
+            % export
             featpValExportName = strcat('results/mapping/swDensityCompare/', featList{featCtr}, '_medianDiff_all.txt');
             dlmcell(featpValExportName,medianDiff);
         end

@@ -1,26 +1,26 @@
-% %% generate tif images for hand labeling
-% % open file
-% fid = fopen('strainsList/noFoodContourFiles_skel_40.txt');
-% filename = 'initialise';
-% % read text file one line at a time
-% while ischar(filename)
-%     % move onto the next line
-%     filename = fgetl(fid);
-%     % get path to the MaskedVideo file
-%     maskedVideoFileName = strrep(filename,'Results','MaskedVideos');
-%     maskedVideoFileName = strrep(maskedVideoFileName,'_skeletons.hdf5','.hdf5');
-%     % read full image from the MaskedVideo
-%     fullData = h5read(maskedVideoFileName,'/full_data');
-%     firstFullImage = fullData(:,:,1);
-%     % save first image
-%     splitMaskedVideoFileName = strsplit(maskedVideoFileName,'/');
-%     imageFileName1 = splitMaskedVideoFileName{end-1};
-%     imageFileName2 = splitMaskedVideoFileName{end};
-%     imageFileName2 = strrep(imageFileName2,'.hdf5','.jpg');
-%     imageFileName = ['/Volumes/behavgenom_archive$/Serena/AggregationScreening/manualFoodContourImages/' imageFileName1 '__' imageFileName2];
-%     imwrite(firstFullImage,imageFileName);
-% end
-% fclose(fid);
+%% generate tif images for hand labeling
+% open file
+fid = fopen('strainsList/noFoodContourFiles_skel_40.txt');
+filename = 'initialise';
+% read text file one line at a time
+while ischar(filename)
+    % move onto the next line
+    filename = fgetl(fid);
+    % get path to the MaskedVideo file
+    maskedVideoFileName = strrep(filename,'Results','MaskedVideos');
+    maskedVideoFileName = strrep(maskedVideoFileName,'_featuresN.hdf5','.hdf5');
+    % read full image from the MaskedVideo
+    fullData = h5read(maskedVideoFileName,'/full_data');
+    firstFullImage = fullData(:,:,1);
+    % save first image
+    splitMaskedVideoFileName = strsplit(maskedVideoFileName,'/');
+    imageFileName1 = splitMaskedVideoFileName{end-1};
+    imageFileName2 = splitMaskedVideoFileName{end};
+    imageFileName2 = strrep(imageFileName2,'.hdf5','.jpg');
+    imageFileName = ['/Volumes/behavgenom_archive$/Serena/AggregationScreening/Auxiliary/manualFoodContourImages/aggScreening' imageFileName1 '__' imageFileName2];
+    imwrite(firstFullImage,imageFileName);
+end
+fclose(fid);
 
 %% hand label food contour using VGG annotator (http://www.robots.ox.ac.uk/~vgg/software/via/via.html) and save annotations
 

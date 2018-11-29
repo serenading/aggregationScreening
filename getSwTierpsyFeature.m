@@ -9,7 +9,7 @@ close all
 strainSet = 'all'; % 'controls','divergent','all'
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 wormNums = {'40','5'};
-featString = 'food';
+featString = 'width';
 saveResults = true;
 
 %% prep work
@@ -41,10 +41,21 @@ for numCtr = 1:length(wormNums)
         for fileCtr = 1:length(fileInd)
             %% load data
             filename = strrep(filenames{fileInd(fileCtr)},'skeletons','featuresN');
-            feature_stats = h5read(filename,'/features_stats');
-            for featCtr = 1:numel(featList)
-                allFeats.(strain){featCtr,1} = featList{featCtr}; % add feature name to the first column
-                allFeats.(strain){featCtr,fileCtr+1} = feature_stats.value(featPos(featCtr)); % add the corresponding feature stat to array
+            if ~strcmp(filename,'/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/Agg_11.1_180216/11.1_6_eca259_a1_ju2522_94_Set0_Pos0_Ch5_16022018_144346_featuresN.hdf5')...
+                & ~strcmp(filename,'/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/agg_7.4_180209/7.4_1_ju778_7b_Set0_Pos0_Ch1_09022018_155743_featuresN.hdf5')...
+                & ~strcmp(filename,'/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/Agg_11.1_180216/11.1_6_qg557_8d_Set0_Pos0_Ch3_16022018_145004_featuresN.hdf5')...
+                & ~strcmp(filename,'/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/agg_1.2_180115/1.2_9_cb4856_oo_Set0_Pos0_Ch4_15012018_192913_featuresN.hdf5')...
+                & ~strcmp(filename,'/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/Agg_1.3_180116/1.3_6_eca246_8f_Set0_Pos0_Ch2_16012018_145913_featuresN.hdf5')...
+                & ~strcmp(filename,'/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/agg_1.2_180115/1.2_5_ed3048_c4_Set0_Pos0_Ch4_15012018_141902_featuresN.hdf5')
+                feature_stats = h5read(filename,'/features_stats');
+                if numel(feature_stats.value) == 4688 % full features list should have 4688 features. only use feature files with the full list
+                    for featCtr = 1:numel(featList)
+                        allFeats.(strain){featCtr,1} = featList{featCtr}; % add feature name to the first column
+                        allFeats.(strain){featCtr,fileCtr+1} = feature_stats.value(featPos(featCtr)); % add the corresponding feature stat to array
+                    end
+                else
+                    disp([filename ' only has ' num2str(numel(feature_stats.value)) ' features'])
+                end
             end
         end
     end

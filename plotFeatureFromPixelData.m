@@ -8,14 +8,14 @@ close all
 
 %% set parameterslegends
 % set analysis parameters
-strainSet = 'all'; % 'controls','divergent','all'
-feature = 'ac'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'ac' (auto-correlation),'gf'(giant fluctuation).
+strainSet = 'divergent'; % 'controls','divergent','all'
+feature = 'pcf'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'ac' (auto-correlation),'gf'(giant fluctuation).
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 saveResults = false;
 plotIndividualReps = false;
 showFrame = false; % true if monitoring script running: display current downsized masked binary image as script runs
 makeDownSampledVid = false; % true if not monitoring script running: generate downsampled video to check afterwards that no obvious non-worm pixels are kept for analysis
-fitModel = true;
+fitModel = false;
     
 % set feature-specific parameters
 if strcmp(feature,'hc')
@@ -144,7 +144,7 @@ end
 
 %% calculate features only if they haven't already been calculated and stored
 try load(['/Users/sding/Documents/AggScreening/results/' feature '_' strainSet '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
-%try load(['/Users/sding/Documents/AggScreening/results/' feature '_all_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
+% try load(['/Users/sding/Documents/AggScreening/results/' feature '_all_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
 catch % calculate features only if saved values don't exist
     %% go through each strain
     for strainCtr = 1:length(strains)
@@ -394,7 +394,7 @@ for strainCtr = 1:length(strains)
     elseif strcmp(feature,'pcf')
         x = distBins(2:end)-distBinWidth/2; x = x';
         y = nanmean(pcf_pooled.(strain),2);
-        % plot(x,y,'Marker','.','MarkerFaceColor',colorMap(strainCtr,:),'MarkerEdgeColor',colorMap(strainCtr,:));
+        % plot(x,y,'Color',colorMap(strainCtr,:));
         [lineHandles(strainCtr), ~] = boundedline(distBins(2:end)-distBinWidth/2,nanmean(pcf_pooled.(strain),2),...
             [nanstd(pcf_pooled.(strain),0,2) nanstd(pcf_pooled.(strain),0,2)]./sqrt(nnz(sum(~isnan(pcf_pooled.(strain)),2))),...
             'alpha',featurePooledFig.Children,'cmap',colorMap(strainCtr,:));
