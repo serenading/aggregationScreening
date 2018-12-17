@@ -8,7 +8,7 @@ close all
 
 %% set parameters
 strainSet = 'all'; % 'controls','divergent','all'
-feature = 'speed'; % 'speed_nonTierpsy','food','blob','eigen','width','length','area','axis','speed','velocity','curvature'
+feature = 'Tierpsy_4548'; % 'speed_nonTierpsy','food','blob','eigen','width','length','area','axis','speed','velocity','curvature','Tierpsy_256','Tierpsy_4548'
 applyBonferroniCorrection = true;
 saveResults = true;
 
@@ -35,7 +35,7 @@ addpath('auxiliary/')
 % load the strain names included in the specified strainSet
 load(['strainsList/' strainSet '.mat'])
 % get list of file names for each strain
-[strainFileList,~,~] = getFileList(strains);
+[strainFileList,~] = getFileList(strains);
 
 %% calculate featureMetric values
 %% initialise
@@ -63,6 +63,48 @@ else
     featList = {feature};
 end
 numFeats = numel(featList);
+
+%% generate feature matrix csv for mapping all 40 and 5 worm Tierpsy_256 data median values
+if strcmp(feature,'Tierpsy_256')
+    Tierpsy_256_40worms = cell(numel(strains),257);
+    Tierpsy_256_5worms = cell(numel(strains),257);
+    Tierpsy_256_40worms(:,1) = strains;
+    Tierpsy_256_5worms(:,1) = strains;
+    for strainCtr = 1:numel(strains)
+        strain = strains{strainCtr};
+        strainFeats_40worms = median(cell2mat(sw40_feature.(strain)(:,2:end)),2)'; format long g
+        strainFeats_5worms = median(cell2mat(sw5_feature.(strain)(:,2:end)),2)'; format long g
+        Tierpsy_256_40worms(strainCtr,2:end) = num2cell(strainFeats_40worms);
+        Tierpsy_256_5worms(strainCtr,2:end) = num2cell(strainFeats_5worms);
+    end
+    % add feature name title
+    featnames = horzcat({'strain'}, sw40_feature.(strain)(:,1)');
+    Tierpsy_256_40worms = vertcat(featnames,Tierpsy_256_40worms);
+    Tierpsy_256_5worms = vertcat(featnames,Tierpsy_256_5worms);
+    if saveResults
+        saveDir = '/Users/sding/Documents/AggScreening/results/mapping/swDensityCompare/Tierpsy/Tierpsy_256/';
+        % for some reason cannot direct export via cell2csv otherwise feat names truncated, must go through .txt as intermediate step
+        % first export as .txt
+        dir40 = [saveDir 'cegwasMappingFeatures40worms.txt'];
+        dir5 = [saveDir 'cegwasMappingFeatures5worms.txt'];
+        dlmcell(dir40,Tierpsy_256_40worms);
+        dlmcell(dir5,Tierpsy_256_5worms);
+        % then read in .txt
+        fid40 = fopen(dir40);
+        fid5 = fopen(dir5);
+        rawContent40 = textscan(fid40,'%s'); % grab content
+        rawContent5 = textscan(fid5,'%s'); % grab content
+        formatContent40 = rawContent40{1};
+        formatContent5 = rawContent5{1};
+        formatContent40 = reshape(formatContent40,[257,numel(formatContent40)/257])';
+        formatContent5 = reshape(formatContent5,[257,numel(formatContent5)/257])';
+        % then export as csv
+        dir40 = strrep(dir40,'.txt','.csv');
+        dir5 = strrep(dir5,'.txt','.csv');
+        cell2csv(dir40,formatContent40);
+        cell2csv(dir5,formatContent5);
+    end
+end
 
 %% go through each feature
 for featCtr = 1:numFeats
@@ -123,6 +165,7 @@ for featCtr = 1:numFeats
             save(strcat('results/featMetricVals/swDensityCompare_',featList{featCtr},'_all.mat'),'featVals_40','featVals_5');
         end
     end
+   
     %% compare featVals between 40 and 5 worm recordings
     % initialise
     pVals = cell(length(strains),10);
@@ -166,10 +209,12 @@ for featCtr = 1:numFeats
     % save and export
     if saveResults
         dirName = 'results/swDensityCompare/';
+        featName = featList{featCtr};
         if useTierpsyFeat
             dirName = [dirName 'Tierpsy/' feature '/'];
+            featName = char(featName);
         end
-        saveFileName = strcat(dirName, featList{featCtr}, '_all');
+        saveFileName = strcat(dirName, featName);
         if applyBonferroniCorrection
             saveFileName = strcat(saveFileName, '_corrected');
         end
@@ -179,7 +224,7 @@ for featCtr = 1:numFeats
         save(strcat(saveFileName, '.mat'),'pVals');
         % 
         if useTierpsyFeat
-            featpValExportName = strcat('results/mapping/swDensityCompare/Tierpsy/', feature, '/', featList{featCtr}, '_medianDiff_all.txt');
+            featpValExportName = strcat('results/mapping/swDensityCompare/Tierpsy/', feature, '/', featName, '_medianDiff.txt');
             % remove DA609 from mapping
             removeIdx = find(strcmp(medianDiff(:,1),'DA609')); % should be 18
             medianDiff = vertcat(medianDiff(1:removeIdx-1,:),medianDiff(removeIdx+1:end,:));
@@ -194,7 +239,7 @@ for featCtr = 1:numFeats
             removeIdx = find(strcmp(medianDiff(:,1),'DA609')); % should be 18
             medianDiff = vertcat(medianDiff(1:removeIdx-1,:),medianDiff(removeIdx+1:end,:));
             % export
-            featpValExportName = strcat('results/mapping/swDensityCompare/', featList{featCtr}, '_medianDiff_all.txt');
+            featpValExportName = strcat('results/mapping/swDensityCompare/',featName, '_medianDiff.txt');
             dlmcell(featpValExportName,medianDiff);
         end
     end

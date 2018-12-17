@@ -1,0 +1,5 @@
+trait	variance explained
+blob_box_width_w_paused_50th_medianDiff	0.087036
+blob_quirkiness_w_paused_IQR_medianDiff	0.11544
+d_blob_area_w_paused_IQR_medianDiff	0.073943
+motion_mode_paused_fraction_medianDiff	0.082342

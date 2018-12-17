@@ -3,24 +3,48 @@
 
 %% INPUT
 % featString: string to be contained in the feature names
+% featCSV: load from 'strainsList/featCSV.mat', which is identical to reading from the original features csv file as a Tierpsy output
 %% OUTPUT
 % featList: cell array with a list of Tierpsy features
 % featPos: 1xn matrix with a list of Tierpsy feature indices for reading from /features_stats.values
 
-function [featList, featPos] = getTierpsyFeatList(featString)
+function [featList, featPos] = getTierpsyFeatList(featString,featCSV)
 
-% open sample features.N file
-filename = '/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/agg_7.2_180205/7.2_3_ab1_78_Set0_Pos0_Ch6_05022018_110819_featuresN.hdf5';
-% read features
-features = h5read(strrep(filename,'skeletons','featuresN'),'/timeseries_data/');
-feature_stats = h5read(strrep(filename,'skeletons','featuresN'),'/features_stats/');
-feature_stats_name = feature_stats.name';
-% find relevant features with plate average stats (there should be 89 "food" features, for example);
-featPos = find(~cellfun('isempty',strfind(cellstr(feature_stats_name),featString)));
-% generate cell array to contain feature names
-featList = cell(1,numel(featPos));
-% add feature name to array
-for featCtr = 1:numel(featPos)
-    pos = featPos(featCtr);
-    featList{featCtr} = feature_stats_name(pos,:); % get the name of the food-related feature
+% get feature stats name
+feature_stats_name = {featCSV{1,1:end}};
+if ~strcmp(featString,'Tierpsy_4548')
+    if ~strcmp(featString,'Tierpsy_256')
+        % find relevant features with plate average stats (there should be 89 "food" features, for example);
+        featPos = find(~cellfun('isempty',strfind(cellstr(feature_stats_name),featString)));
+    else
+        featPos = NaN(256,1);
+        % load file
+        fid = fopen('strainsList/Tierpsy_256.txt');
+        featnameString = 'initialise';
+        fileCtr = 0;
+        % read text file one line at a time
+        while ischar(featnameString)
+            % move onto the next line
+            featnameString = fgetl(fid);
+            fileCtr = fileCtr+1;
+            featInd = find(~cellfun('isempty',strfind(cellstr(feature_stats_name),featnameString)));
+            for featCtr = 1:numel(featInd)
+                if cellfun('length',feature_stats_name(featInd(featCtr))) == numel(featnameString)
+                    featPos(fileCtr,1) = featInd(featCtr);
+                    break
+                end
+            end
+        end
+        fclose(fid);
+    end
+    % generate cell array to contain feature names
+    featList = cell(numel(featPos),1);
+    % add feature name to array
+    for featCtr = 1:numel(featPos)
+        feat = featPos(featCtr);
+        featList{featCtr} = feature_stats_name(feat); % get the name of the food-related feature
+    end
+else
+    featList = {feature_stats_name{2:end}}';
+    featPos = [1:numel(featList)];
 end

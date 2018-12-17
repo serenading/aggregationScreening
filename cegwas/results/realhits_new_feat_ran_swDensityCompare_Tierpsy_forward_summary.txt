@@ -1,0 +1,4 @@
+trait	variance explained
+d_blob_quirkiness_w_forward_10th_medianDiff	0.10671
+d_blob_quirkiness_w_forward_90th_medianDiff	0.10423
+orientation_food_edge_w_forward_90th_medianDiff	0.1004

@@ -1,0 +1,2 @@
+trait	variance explained
+orientation_food_edge_w_forward_90th_medianDiff_all	0.098367

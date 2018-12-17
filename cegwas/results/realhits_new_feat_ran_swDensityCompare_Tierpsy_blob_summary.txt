@@ -1,0 +1,7 @@
+trait	variance explained
+blob_box_width_w_paused_50th_medianDiff_all	0.086369
+blob_hu1_IQR_medianDiff_all	0.10992
+blob_quirkiness_10th_medianDiff_all	0.13845
+blob_quirkiness_IQR_medianDiff_all	0.10971
+blob_quirkiness_w_paused_IQR_medianDiff_all	0.11963
+d_blob_area_w_paused_IQR_medianDiff_all	0.072555

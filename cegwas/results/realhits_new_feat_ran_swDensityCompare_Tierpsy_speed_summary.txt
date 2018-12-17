@@ -1,0 +1,2 @@
+trait	variance explained
+speed_head_tip_10th_medianDiff_all	0.086981

@@ -2,3 +2,5 @@
 *.mat
 *.avi
 /downsampledVideos/*
+*.Rdata
+

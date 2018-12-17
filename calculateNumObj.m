@@ -24,7 +24,7 @@ addpath('auxiliary/')
 % load the strain names included in the specified strainSet
 load(['strainsList/' strainSet '.mat'])
 % get list of file names for each strain
-[strainFileList] = getFileList(strains);
+[strainFileList,~] = getFileList(strains);
 % generate colormap for plotting each strain
 colorMap = distinguishable_colors(length(strains));
 

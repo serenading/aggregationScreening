@@ -1,0 +1,2 @@
+trait	variance explained
+d_blob_area_w_paused_IQR_medianDiff_all	0.072555

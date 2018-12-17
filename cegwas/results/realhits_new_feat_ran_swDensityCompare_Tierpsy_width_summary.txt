@@ -1,0 +1,2 @@
+trait	variance explained
+blob_box_width_w_paused_50th_medianDiff_all	0.086369

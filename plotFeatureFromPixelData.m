@@ -114,7 +114,7 @@ addpath('auxiliary/')
 % load the strain names included in the specified strainSet
 load(['strainsList/' strainSet '.mat'])
 % get list of file names for each strain
-[strainFileList,~,~] = getFileList(strains);
+[strainFileList,~] = getFileList(strains);
 % generate colormap for plotting each strain
 colorMap = distinguishable_colors(length(strains));
 % create empty figures
@@ -489,7 +489,7 @@ if fitModel
     set(0,'CurrentFigure',modelPooledFig)
     xlabel(xLabel)
     ylabel(yLabel)
-    %if saveResults
+    if saveResults
         if length(modelFun) == 1
             figurename = ['figures/modelFit/' feature '_' strainSet '_fitmodel_' modelFun{1} '_' featVarName '_Pooled_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel'];
         else
@@ -503,7 +503,7 @@ if fitModel
             'FontSize',20,...
             'LineWidth',2);
         exportfig(modelPooledFig,[figurename '.eps'],exportOptions2)
-    %end
+    end
     if plotIndividualReps
         set(modelFig,'PaperUnits','centimeters')
         set(0,'CurrentFigure',modelFig)
