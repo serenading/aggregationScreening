@@ -20,8 +20,7 @@ load(['strainsList/' strainSet '.mat'])
 % get list of file names for each strain
 [strainFileList,~] = getFileList(strains);
 % load features csv files
-load('strainsList/featCSV.mat'); % much faster to load saved cell array than to read directly from the csv file
-[~,~,filenameCSV] = xlsread('/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/filenames_summary_tierpsy_plate_20181203_141111.xlsx');
+load('strainsList/featCSV.mat'); % much faster to load saved cell array than to read directly from the csv file, which can be done by using [~,~,filenameCSV] = xlsread('/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/filenames_summary_tierpsy_plate_20181203_141111.xlsx');
 % generate a list of required Tierpsy features
 [featList, featPos] = getTierpsyFeatList(featString,featCSV);
 
