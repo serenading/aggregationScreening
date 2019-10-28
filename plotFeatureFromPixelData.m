@@ -9,15 +9,16 @@ close all
 %% set parameterslegends
 % set analysis parameters
 strainSet = 'divergent'; % 'controls','divergent','all'
-feature = 'pcf'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'ac' (auto-correlation),'gf'(giant fluctuation).
+feature = 'ac'; % specify feature as string. 'pcf' (pair correlation function), 'hc'(hierarchical clustering), 'ac' (auto-correlation),'gf'(giant fluctuation).
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
 saveResults = false;
-plotIndividualReps = false;
-showFrame = false; % true if monitoring script running: display current downsized masked binary image as script runs
+plotIndividualReps = true;
+showFrame = true; % true if monitoring script running: display current downsized masked binary image as script runs
 makeDownSampledVid = false; % true if not monitoring script running: generate downsampled video to check afterwards that no obvious non-worm pixels are kept for analysis
 fitModel = false;
     
-% set feature-specific parameters
+% set feature-specific parameters 
+% investigate using switch case instead of if strcmp
 if strcmp(feature,'hc')
     sampleFrameEveryNSec = 10;
     sampleEveryNPixel = 8; % 4,8,16 for hc
@@ -143,9 +144,10 @@ if strcmp(feature,'pcf')
 end
 
 %% calculate features only if they haven't already been calculated and stored
-try load(['/Users/sding/Documents/AggScreening/results/' feature '_' strainSet '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
-% try load(['/Users/sding/Documents/AggScreening/results/' feature '_all_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat']) % try opening saved values
-catch % calculate features only if saved values don't exist
+savedFileName = ['/Users/sding/Documents/AggScreening/results/' feature '_' strainSet '_sample' num2str(sampleFrameEveryNSec) 's_' num2str(sampleEveryNPixel) 'pixel.mat'];
+if exist(savedFileName,'file') == 2
+    load(savedFileName,featVarName); 
+else % calculate features only if saved values don't exist
     %% go through each strain
     for strainCtr = 1:length(strains)
         strain = strains{strainCtr};
@@ -339,6 +341,7 @@ for strainCtr = 1:length(strains)
                 boundedline(distBins(2:end)-distBinWidth/2,nanmean(pcf.(strain){fileCtr},2),...
                     [nanstd(pcf.(strain){fileCtr},0,2) nanstd(pcf.(strain){fileCtr},0,2)]./sqrt(nnz(sum(~isnan(pcf.(strain){fileCtr}),2))),...
                     'alpha',featureFig.Children,'cmap',colorMap(strainCtr,:))
+                % handle visibility off to remove shading to legend
                 if fitModel
                     if ~isempty(y) & nnz(isnan(y))~=numel(y)
                         set(0,'CurrentFigure',modelFig)
