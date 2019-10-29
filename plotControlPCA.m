@@ -1,19 +1,28 @@
 clear
 close all
 
+
 %% script takes 5 worm imaging datasets for 3 control strains and plots them in shared PC space
-% to assess the effect of diapause length, bleach prep, recording time of the day (approx. by run number), and camera number on data
+% to assess the effect of strain, diapause length, bleach prep, recording time of the day (approx. by run number), and camera number on data
 % author: @serenading Oct 2019
 
 %% set parameters
-% set analysis parameters
+% which strains and worm number
 strains = {'N2','DA609','CB4856'};
-markerShapes = {'.','*','o'}; % marker shape to differentiate three strains in combined plots
 wormNum = 5; % dataset exists for 5 and 40 worms.
+
+% which features to use for PCA
 useTierpsy256 = true; % true to use 256 features, false to use all (>4000) features
 dropFeatThreshold = 0.2; % the maximum fraction of NaN values that a feature can have before being dropped
-% imputeNaNThreshold = 0; 
+%  imputeNaNThreshold = 0; 
+
+% how to plot
+markerShapes = {'.','*','o'}; % marker shape to differentiate three strains in combined plots
 drawPolygon = true; % connect related datapoints for easy visualisation
+
+% how many PC's to use for manova test
+useVariablePCs = false; % True: use hand-determined number of PC's for each test; False: use number of PC's necessary to explain a variance threshold set by minVar4PC
+minVarianceExplained = 60; % minium variance threshold (in %) to determine the number of PC needed.
 
 %% prep work
 addpath('auxiliary/')
@@ -120,7 +129,12 @@ disp([ num2str(dropCtr) ' out of  ' num2str(size(featMat,2)) ' features dropped 
 featMatNorm = normalize(featMat,1);
 
 % do pca
-[pc, score, ~, ~, explained] = pca(featMatNorm,'NumComponents',5);
+[pc, score, ~, ~, explained] = pca(featMatNorm);
+
+% determine how many PC's are needed to explain a specied amount of variance in the data
+explainedCumSum = cumsum(explained);
+minNumPC = find(explainedCumSum > minVarianceExplained,1); % the number of PC needed
+disp(['The first ' num2str(minNumPC) ' PC explain at least ' num2str(minVarianceExplained) '% of the variance in the data'])
 
 %% plot first two PCs for a number of experimental variables to assess their effect on the data
 
@@ -296,3 +310,48 @@ ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
 %     xlabel('run number')
 %     ylabel('median length (microns)')
 % end
+
+%% perform manova using PC values as variables (note: the number of observations per group needs to exceed the number of variables)
+
+% decide how many PCs to use as variables for manova
+if useVariablePCs % individually decide for each test based on the number of available observations
+    numPCs = [50, 40, 10, 7, 40]; 
+else % use the number of PC's needed to explain a certain amount of variance
+    numPCs = minNumPC*ones(1,5); % generate numPcs value set for all 5 tests
+end
+pcs2use = containers.Map({'strain','diapause','run','bleach','camera'},numPCs);
+
+% strains (use all strains with minimum 50 observations)
+[d,p] = manova1(score(:,1:pcs2use('strain')),strainname);
+if d>0
+    disp('Significant difference grouping by strain')
+    d, p
+end
+% days in diapause (only use days 1-3 with minimum 42 observations)
+manLogInd = daysDiapause<=3;
+[d,p] = manova1(score(manLogInd,1:pcs2use('diapause')),daysDiapause(manLogInd));
+if d>0
+    disp('Significant difference grouping by days in diapause')
+    d, p
+end
+% run number (only use runs 1-6 with 12 minimum observations)
+manLogInd = runNum<=6;
+[d,p] = manova1(score(manLogInd,1:pcs2use('run')),runNum(manLogInd));
+if d>0
+    disp('Significant difference grouping by run number')
+    d, p
+end
+% bleach number (only use bleaches 1-15 with minimum 8 observations)
+manLogInd = bleachNum<=15;
+[d,p] = manova1(score(manLogInd,1:pcs2use('bleach')),bleachNum(manLogInd));
+if d>0
+    disp('Significant difference grouping by bleach number')
+    d, p
+end
+% camera number (only use cameras 2,4,6 with minimum 42 observations)
+manLogInd = camNum==2|camNum==4|camNum==6;
+[d,p] = manova1(score(manLogInd,1:pcs2use('camera')),camNum(manLogInd));
+if d>0
+    disp('Significant difference grouping by camera number')
+    d, p
+end
