@@ -7,6 +7,7 @@ close all
 % author: @serenading Oct 2019
 
 %% set parameters
+
 % which strains and worm number
 strains = {'N2','DA609','CB4856'};
 wormNum = 5; % dataset exists for 5 and 40 worms.
@@ -25,20 +26,24 @@ useVariablePCs = false; % True: use hand-determined number of PC's for each test
 minVarianceExplained = 60; % minium variance threshold (in %) to determine the number of PC needed.
 
 %% prep work
+
 addpath('auxiliary/')
 % load metadata
 metadata = readtable('/Volumes/behavgenom_archive$/Serena/AggregationScreening/metadata_aggregationScreening.csv');
 % load Tierpsy feature summary files and corresponding filenames
 features_summary = readtable('/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/features_summary_tierpsy_plate_20191024_122847.csv');
 filenames_summary = readtable('/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/filenames_summary_tierpsy_plate_20191024_122847.csv','Format', '%d%s%s');
+
 % join the Tierpsy tables to match filenames with file_id. Required in case features were not extracted for any files.
 combinedTierpsyTable = outerjoin(filenames_summary, features_summary,'MergeKeys', true);
 
 %% use Tierpsy 256 features
+
 if useTierpsy256
     % load the set of 256 features selected using based on classification accuracy on a set of mutant strains
     top256 = readtable('./auxiliary/tierpsy_256.csv','ReadVariableNames',0);
     featNames = top256.Var1;
+    
     % curtail featNames to max 63 characters; anything beyond this is truncated inside combinedTierpsyTable and will not match up
     for featCtr = 1:numel(featNames)
         featNameLength = numel(featNames{featCtr});
@@ -46,11 +51,13 @@ if useTierpsy256
             featNames{featCtr} = featNames{featCtr}(1:63);
         end
     end
+    
     % trim down feature matrix to contain just 256 features
     featMat = combinedTierpsyTable{:, featNames}; % this gives error when feat names do not match up perfectly
 end
 
 %% get info from metadata for files as specified by strain and worm number
+
 % find logical indices for valid files
 fileLogInd = [];
 for strainCtr = 1:numel(strains)
@@ -59,11 +66,13 @@ for strainCtr = 1:numel(strains)
 end
 fileLogIndAllStrains = logical(sum(fileLogInd,2)); % combine valid indices for all strains
 numFiles = nnz(fileLogIndAllStrains);
+
 % extract file name parts
 dirname = metadata.dirname(fileLogIndAllStrains);
 basename = metadata.basename(fileLogIndAllStrains);
-strainname = metadata.strain_name(fileLogIndAllStrains);
-% get days in diapause and run and bleach numbers for assessment
+
+% get days in diapause and run and bleach and camera numbers for assessment
+strainName = metadata.strain_name(fileLogIndAllStrains);
 daysDiapause = metadata.daysDiapause(fileLogIndAllStrains);
 runNum = metadata.run(fileLogIndAllStrains);
 bleachNum = metadata.block(fileLogIndAllStrains);
@@ -89,7 +98,8 @@ else
 end
 lengths = combinedTierpsyTable.length_50th(fileInd); % length feature
 
-%% analyze features
+%% analyze features with PCA
+
 % drop features with too many NaN's
 numNanFeat = sum(isnan(featMat),1);
 nanFeatInd = find(numNanFeat>0); % get indices for features with NaN's
@@ -146,7 +156,7 @@ colorMap = hsv(numel(days));
 
 for strainCtr = 1:numel(strains)
     strain = strains{strainCtr};
-    strainLogInd = strcmp(strainname, strain);
+    strainLogInd = strcmp(strainName, strain);
     for dayCtr = 1:numel(days)
         day = days(dayCtr);
         dayInd = daysDiapause == day;
@@ -178,7 +188,7 @@ colorMap = hsv(numel(runs));
 
 for strainCtr = 1:numel(strains)
     strain = strains{strainCtr};
-    strainLogInd = strcmp(strainname, strain);
+    strainLogInd = strcmp(strainName, strain);
     skippedRunInd = ones(numel(runs),1); % keep track of run numbers that don't exist for a certain strain
     clear plotHandle
     for runCtr = 1:numel(runs)
@@ -219,7 +229,7 @@ colorMap = hsv(numel(bleaches));
 
 for strainCtr = 1:numel(strains)
     strain = strains{strainCtr};
-    strainLogInd = strcmp(strainname, strain);
+    strainLogInd = strcmp(strainName, strain);
     clear plotHandle
     for bleachCtr = 1:numel(bleaches)
         bleach = bleaches(bleachCtr);
@@ -257,7 +267,7 @@ colorMap = hsv(numel(cams));
 
 for strainCtr = 1:numel(strains)
     strain = strains{strainCtr};
-    strainLogInd = strcmp(strainname, strain);
+    strainLogInd = strcmp(strainName, strain);
     skippedCamInd = ones(numel(cams),1); % keep track of camera numbers that don't exist for a certain strain
     clear plotHandle
     for camCtr = 1:numel(cams)
@@ -322,7 +332,7 @@ end
 pcs2use = containers.Map({'strain','diapause','run','bleach','camera'},numPCs);
 
 % strains (use all strains with minimum 50 observations)
-[d,p] = manova1(score(:,1:pcs2use('strain')),strainname);
+[d,p] = manova1(score(:,1:pcs2use('strain')),strainName);
 if d>0
     disp('Significant difference grouping by strain')
     d, p
