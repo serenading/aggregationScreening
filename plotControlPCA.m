@@ -13,9 +13,8 @@ strains = {'N2','DA609','CB4856'};
 wormNum = 5; % dataset exists for 5 and 40 worms.
 
 % which features to use for PCA
-useTierpsy256 = true; % true to use 256 features, false to use all (>4000) features
+useTierpsy256 = false; % true to use 256 features, false to use all (>4000) features
 dropFeatThreshold = 0.2; % the maximum fraction of NaN values that a feature can have before being dropped
-%  imputeNaNThreshold = 0; 
 
 % how to plot
 markerShapes = {'.','*','o'}; % marker shape to differentiate three strains in combined plots
@@ -36,25 +35,6 @@ filenames_summary = readtable('/Volumes/behavgenom_archive$/Serena/AggregationSc
 
 % join the Tierpsy tables to match filenames with file_id. Required in case features were not extracted for any files.
 combinedTierpsyTable = outerjoin(filenames_summary, features_summary,'MergeKeys', true);
-
-%% use Tierpsy 256 features
-
-if useTierpsy256
-    % load the set of 256 features selected using based on classification accuracy on a set of mutant strains
-    top256 = readtable('./auxiliary/tierpsy_256.csv','ReadVariableNames',0);
-    featNames = top256.Var1;
-    
-    % curtail featNames to max 63 characters; anything beyond this is truncated inside combinedTierpsyTable and will not match up
-    for featCtr = 1:numel(featNames)
-        featNameLength = numel(featNames{featCtr});
-        if featNameLength > 63
-            featNames{featCtr} = featNames{featCtr}(1:63);
-        end
-    end
-    
-    % trim down feature matrix to contain just 256 features
-    featMat = combinedTierpsyTable{:, featNames}; % this gives error when feat names do not match up perfectly
-end
 
 %% get info from metadata for files as specified by strain and worm number
 
@@ -78,7 +58,8 @@ runNum = metadata.run(fileLogIndAllStrains);
 bleachNum = metadata.block(fileLogIndAllStrains);
 camNum = metadata.channel(fileLogIndAllStrains);
 
-%% go through each file name to grow combined features file indices
+%% get features file indices as specified by strain and worm number
+
 fileInd = [];
 for fileCtr = 1:numFiles
     % get features file name
@@ -91,27 +72,36 @@ end
 assert(numel(fileInd) == numFiles)
 
 %% get neccesary features for all files of interest
-if useTierpsy256
-    featMat = featMat(fileInd,:); % 256 features
-else
-    featMat = table2array(combinedTierpsyTable(fileInd,4:end)); % all features
+
+if useTierpsy256 % use Tierpsy256 feature set
+    % load the set of 256 features selected using based on classification accuracy on a set of mutant strains
+    top256 = readtable('./auxiliary/tierpsy_256.csv','ReadVariableNames',0);
+    featNames = top256.Var1;
+    % curtail featNames to max 63 characters; anything beyond this is truncated inside combinedTierpsyTable and will not match up
+    for featCtr = 1:numel(featNames)
+        featNameLength = numel(featNames{featCtr});
+        if featNameLength > 63
+            featNames{featCtr} = featNames{featCtr}(1:63);
+        end
+    end
+    % trim down feature matrix to contain just 256 features
+    featMat = combinedTierpsyTable{fileInd, featNames}; 
+
+else % use all features
+    featMat = table2array(combinedTierpsyTable(fileInd,4:end)); 
 end
-lengths = combinedTierpsyTable.length_50th(fileInd); % length feature
+
+% get length feature
+lengths = combinedTierpsyTable.length_50th(fileInd); 
 
 %% analyze features with PCA
 
 % drop features with too many NaN's
+featBefore = size(featMat,2);
 numNanFeat = sum(isnan(featMat),1);
-nanFeatInd = find(numNanFeat>0); % get indices for features with NaN's
-dropCtr = 0;
-for featCtr = numel(nanFeatInd):-1:1
-    featIdx = nanFeatInd(featCtr); % get feature index
-    if numNanFeat(featIdx)>numFiles*dropFeatThreshold % if there are too many NaN values for this feature
-        featMat = [featMat(:,1:nanFeatInd(featCtr)-1), featMat(:,nanFeatInd(featCtr)+1:end)]; % drop feature by concatenating matrix on either side of this feature
-        dropCtr = dropCtr+1;
-    end
-end
-disp([ num2str(dropCtr) ' out of  ' num2str(size(featMat,2)) ' features dropped due to too many NaN values'])
+colsToDrop = numNanFeat > numFiles*dropFeatThreshold; % get logical index for features with too many NaN's
+featMat = featMat(:,~colsToDrop);
+disp([ num2str(nnz(colsToDrop)) ' out of  ' num2str(featBefore) ' features dropped due to too many NaN values'])
 
 % impute nan values to global mean
 featMeans = nanmean(featMat);
@@ -126,14 +116,11 @@ end
 disp([ num2str(imputeCtr) ' out of  ' num2str(size(featMat,2)) ' features have NaN values imputed'])
 
 % drop features with zero standard deviation
+featBefore = size(featMat,2);
 featStds = std(featMat);
-zeroFeatStdInd = find(featStds == 0); % get indices for features with zero standard deviation
-dropCtr = 0;
-for featCtr = numel(zeroFeatStdInd):-1:1
-    featMat = [featMat(:,1:zeroFeatStdInd(featCtr)-1), featMat(:,zeroFeatStdInd(featCtr)+1:end)]; % drop feature by concatenating matrix on either side of this feature
-    dropCtr = dropCtr+1;
-end
-disp([ num2str(dropCtr) ' out of  ' num2str(size(featMat,2)) ' features dropped due to zero standard deviation'])
+colsToDrop = featStds == 0 ; % get logical index for features with too many NaN's
+featMat = featMat(:,~colsToDrop);
+disp([ num2str(nnz(colsToDrop)) ' out of  ' num2str(featBefore) ' features dropped due to zero standard deviation'])
 
 % z-normalise feature matrix
 featMatNorm = normalize(featMat,1);
@@ -166,11 +153,15 @@ for strainCtr = 1:numel(strains)
         y = score(plotLogInd, 2);
         for plotCtr = [1, strainCtr+1]
             subplot(2,2,plotCtr); hold on
-            plot(x, y, markerShapes{strainCtr}, 'MarkerSize', 12, 'Color', colorMap(dayCtr,:))
+            plotHandle(dayCtr) = plot(x, y, markerShapes{strainCtr}, 'MarkerSize', 12, 'Color', colorMap(dayCtr,:),...
+                'DisplayName',['day ' num2str(day) ', n=' num2str(numel(x))]);
+            if drawPolygon & nnz(plotLogInd)>2 % need more than 2 points to draw convex hull shape
+                polygon = convhull(x, y);
+                patch(x(polygon), y(polygon), colorMap(dayCtr,:),'FaceAlpha',0.3,'EdgeColor',colorMap(dayCtr,:))
+            end
         end
-        legends{dayCtr} = ['day ' num2str(day) ', n=' num2str(numel(x))];
     end
-    legend(legends)
+    legend(plotHandle)
     title ([strain ', days in diapause'])
     xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
     ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
