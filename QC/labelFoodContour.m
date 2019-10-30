@@ -27,7 +27,7 @@ fclose(fid);
 %% interpolate xy coordinates to generate the correct coordinate format
 addpath('auxiliary/')
 % read xy coordinates
-[~,~,annotations] = xlsread('/Volumes/behavgenom$/Serena/aggregationScreeningDocs/food_contour.xlsx');
+[~,~,annotations] = xlsread('/Volumes/behavgenom_archive$/Serena/AggregationScreening/Auxiliary/food_contour.xlsx');
 for imageCtr = 1:length(annotations)
     imageCtr
     annotation = annotations{imageCtr};

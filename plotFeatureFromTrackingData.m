@@ -9,7 +9,7 @@ close all
 %% set parameters
 % set analysis parameters
 strainSet = 'divergent'; % 'controls','divergent','all'
-wormNum = '5'; % '40' or '5'
+wormNum = '40'; % '40' or '5'
 feature = 'perdurance'; % specify feature as string. 'area','compactness','perimeter','quirkiness','solidity','speed','perdurance'
 saveResults = false;
 maxNumReplicates = 60; % controls have up to 60 reps, divergents up to 15 reps, all other strains up to 5 reps.
