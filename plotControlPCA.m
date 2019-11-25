@@ -9,7 +9,7 @@ close all
 %% set parameters
 
 % which strains and worm number
-strains = {'N2','DA609','CB4856'};
+strains = {'N2'};%,'DA609','CB4856'};
 wormNum = 5; % dataset exists for 5 and 40 worms.
 
 % which features to use for PCA
@@ -132,6 +132,14 @@ featMatNorm = normalize(featMat,1);
 explainedCumSum = cumsum(explained);
 minNumPC = find(explainedCumSum > minVarianceExplained,1); % the number of PC needed
 disp(['The first ' num2str(minNumPC) ' PC explain at least ' num2str(minVarianceExplained) '% of the variance in the data'])
+
+% % see what's inside the first PC
+% [feat,featIdx] = sort(pc(:,1)); % PC1 
+% if useTierpsy256
+%     featNames(featIdx)
+% else
+%     combinedTierpsyTable.Properties.VariableNames(i)'
+% end
 
 %% plot first two PCs for a number of experimental variables to assess their effect on the data
 
