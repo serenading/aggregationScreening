@@ -1,0 +1,49 @@
+Sizes for files in fortywormcontrolfilenames.csv
+n files:		169
+MaskedVideos:		916.83 GB
+_featuresN.hdf5:	230.92 GB
+_skeletons.hdf5:	158.01 GB
+Total:			1.28 TB
+
+Sizes for files in fivewormfilenames.csv
+n files:		787
+MaskedVideos:		1352.81 GB
+_featuresN.hdf5:	225.52 GB
+_skeletons.hdf5:	136.68 GB
+Total:			1.67 TB
+
+Sizes for files in fortywormfilenames.csv
+n files:		1222
+MaskedVideos:		6490.01 GB
+_featuresN.hdf5:	1580.13 GB
+_skeletons.hdf5:	1157.48 GB
+Total:			9.01 TB
+
+Sizes for files in fortywormcappedcontrolfilenames.csv
+n files:		1098
+MaskedVideos:		5821.63 GB
+_featuresN.hdf5:	1409.04 GB
+_skeletons.hdf5:	1040.38 GB
+Total:			8.08 TB
+
+Sizes for files in fortywormnoncontrolfilenames.csv
+n files:		1053
+MaskedVideos:		5573.18 GB
+_featuresN.hdf5:	1349.21 GB
+_skeletons.hdf5:	999.47 GB
+Total:			7.74 TB
+
+Sizes for files in fortywormdivergentfilenames.csv
+n files:		276
+MaskedVideos:		1503.80 GB
+_featuresN.hdf5:	369.85 GB
+_skeletons.hdf5:	260.83 GB
+Total:			2.08 TB
+
+Sizes for files in fortywormnondivergentfilenames.csv
+n files:		946
+MaskedVideos:		4986.20 GB
+_featuresN.hdf5:	1210.29 GB
+_skeletons.hdf5:	896.65 GB
+Total:			6.93 TB
+
