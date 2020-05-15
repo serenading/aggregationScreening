@@ -1,6 +1,6 @@
 %% script takes 5 worm imaging datasets for 3 control strains and plots them in shared PC space
 % to assess the effect of strain, diapause length, bleach prep, recording time of the day (approx. by run number), and camera number on data
-% author: @serenading Oct 2019
+% author: @serenading May 2020
 
 clear
 close all
@@ -19,7 +19,6 @@ n_nonFeatVar = 17; % the first n columns of the feature table that do not contai
 
 % which features to use for PCA
 useTierpsy256 = false; % true to use 256 features, false to use all (>4000) features
-dropFeatThreshold = 0.2; % the maximum fraction of NaN values that a feature can have before being dropped
 
 % how to plot
 markerShapes = {'.','*','o'}; % marker shape to differentiate three strains in combined plots
@@ -49,7 +48,6 @@ for wormNumCtr = 1:numel(wormNums)
 end
 % combine to get row logical index by strain and number
 rowLogInd = combinedStrainLogInd & combinedWormNumLogInd;
-n_files = nnz(rowLogInd);
 
 %% Get features matrix from features table for selected files (rows) and features (columns)
 % optionally use the Tierpsy256 feature set
@@ -67,7 +65,7 @@ if useTierpsy256
     % trim down feature matrix to contain just 256 features
     featureMat = featureTable{rowLogInd, featNames};
 else
-    % use all features
+    % use all features for feature matrix
     featureMat = table2array(featureTable(rowLogInd, n_nonFeatVar+1:end));
 end
 
@@ -76,37 +74,11 @@ lengths = featureTable.length_50th(rowLogInd);
 
 %% analyze features with PCA
 
-% drop features with too many NaN's
-featBefore = size(featureMat,2);
-numNanFeat = sum(isnan(featureMat),1);
-colsToDrop = numNanFeat > n_files*dropFeatThreshold; % get logical index for features with too many NaN's
-featureMat = featureMat(:,~colsToDrop);
-disp([ num2str(nnz(colsToDrop)) ' out of  ' num2str(featBefore) ' features dropped due to too many NaN values'])
-
-% impute nan values to global mean
-featMeans = nanmean(featureMat);
-imputeCtr = 0;
-for featCtr = 1:size(featureMat, 2)
-    nanInds = isnan(featureMat(:, featCtr));
-    if nnz(nanInds)>0
-        featureMat(nanInds, featCtr) = featMeans(featCtr);
-        imputeCtr = imputeCtr+1;
-    end
-end
-disp([ num2str(imputeCtr) ' out of  ' num2str(size(featureMat,2)) ' features have NaN values imputed'])
-
-% drop features with zero standard deviation
-featBefore = size(featureMat,2);
-featStds = std(featureMat);
-colsToDrop = featStds == 0 ; % get logical index for features with too many NaN's
-featureMat = featureMat(:,~colsToDrop);
-disp([ num2str(nnz(colsToDrop)) ' out of  ' num2str(featBefore) ' features dropped due to zero standard deviation'])
-
-% z-normalise feature matrix
-featureMatNorm = normalize(featureMat,1);
+% pre-process feature matrix for PCA
+featureMat = preprocess4PCA(featureMat);
 
 % do pca
-[pc, score, ~, ~, explained] = pca(featureMatNorm);
+[pc, score, ~, ~, explained] = pca(featureMat);
 
 % determine how many PC's are needed to explain a specied amount of variance in the data
 explainedCumSum = cumsum(explained);
