@@ -1,16 +1,21 @@
-clear
-close all
-
-
 %% script takes 5 worm imaging datasets for 3 control strains and plots them in shared PC space
 % to assess the effect of strain, diapause length, bleach prep, recording time of the day (approx. by run number), and camera number on data
 % author: @serenading Oct 2019
 
-%% set parameters
+clear
+close all
+
+addpath('auxiliary/')
+
+%% Set parameters
 
 % which strains and worm number
-strains = {'N2'};%,'DA609','CB4856'};
-wormNum = 5; % dataset exists for 5 and 40 worms.
+strains = {'N2','DA609','CB4856'};
+wormNums = 5; % 5, or, 40, or [5, 40]
+
+% which features table to load
+featExtractTimestamp = '20191024_122847'; %'20191024_122847' or '20181203_141111'
+n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
 
 % which features to use for PCA
 useTierpsy256 = false; % true to use 256 features, false to use all (>4000) features
@@ -24,56 +29,31 @@ drawPolygon = true; % connect related datapoints for easy visualisation
 useVariablePCs = false; % True: use hand-determined number of PC's for each test; False: use number of PC's necessary to explain a variance threshold set by minVar4PC
 minVarianceExplained = 60; % minium variance threshold (in %) to determine the number of PC needed.
 
-%% prep work
+%% Load features table
+featureTable = readtable(['/Users/sding/Dropbox/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
 
-addpath('auxiliary/')
-% load metadata
-metadata = readtable('/Volumes/behavgenom_archive$/Serena/AggregationScreening/metadata_aggregationScreening.csv');
-% load Tierpsy feature summary files and corresponding filenames
-features_summary = readtable('/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/features_summary_tierpsy_plate_20191024_122847.csv');
-filenames_summary = readtable('/Volumes/behavgenom_archive$/Serena/AggregationScreening/Results/filenames_summary_tierpsy_plate_20191024_122847.csv','Format', '%d%s%s');
-
-% join the Tierpsy tables to match filenames with file_id. Required in case features were not extracted for any files.
-combinedTierpsyTable = outerjoin(filenames_summary, features_summary,'MergeKeys', true);
-
-%% get info from metadata for files as specified by strain and worm number
-
-% find logical indices for valid files
-fileLogInd = [];
+%% Get rows corresponding to specified strain and worm number
+% compile logical index by strain
+combinedStrainLogInd = false(size(featureTable,1),1);
 for strainCtr = 1:numel(strains)
     strain = strains{strainCtr};
-    fileLogInd = [fileLogInd strcmp(metadata.strain_name,strain) & metadata.wormNum == wormNum & metadata.is_bad ==0];
+    strainLogInd = strcmp(featureTable.strain_name,strain);
+    combinedStrainLogInd(strainLogInd) = true;
 end
-fileLogIndAllStrains = logical(sum(fileLogInd,2)); % combine valid indices for all strains
-numFiles = nnz(fileLogIndAllStrains);
-
-% extract file name parts
-dirname = metadata.dirname(fileLogIndAllStrains);
-basename = metadata.basename(fileLogIndAllStrains);
-
-% get days in diapause and run and bleach and camera numbers for assessment
-strainName = metadata.strain_name(fileLogIndAllStrains);
-daysDiapause = metadata.daysDiapause(fileLogIndAllStrains);
-runNum = metadata.run(fileLogIndAllStrains);
-bleachNum = metadata.block(fileLogIndAllStrains);
-camNum = metadata.channel(fileLogIndAllStrains);
-
-%% get features file indices as specified by strain and worm number
-
-fileInd = [];
-for fileCtr = 1:numFiles
-    % get features file name
-    filename = strrep(strrep(strcat(dirname{fileCtr},'/',basename{fileCtr}),'MaskedVideos','Results'),'.hdf5','_featuresN.hdf5');
-    % get the file_id for this file (this is the "file_id" inside the "features_summary" and "filenames_summary" files and uses Python indexing)
-    fileIdx = find(strcmp(combinedTierpsyTable.file_name,filename));
-    % add to list of file indices
-    fileInd = vertcat(fileInd,fileIdx);
+% compile logical index by worm number
+combinedWormNumLogInd = false(size(featureTable,1),1);
+for wormNumCtr = 1:numel(wormNums)
+    wormNum = wormNums(wormNumCtr);
+    wormNumLogInd = featureTable.wormNum == wormNum;
+    combinedWormNumLogInd(wormNumLogInd) = true;
 end
-assert(numel(fileInd) == numFiles)
+% combine to get row logical index by strain and number
+rowLogInd = combinedStrainLogInd & combinedWormNumLogInd;
+n_files = nnz(rowLogInd);
 
-%% get neccesary features for all files of interest
-
-if useTierpsy256 % use Tierpsy256 feature set
+%% Get features matrix from features table for selected files (rows) and features (columns)
+% optionally use the Tierpsy256 feature set
+if useTierpsy256 
     % load the set of 256 features selected using based on classification accuracy on a set of mutant strains
     top256 = readtable('./auxiliary/tierpsy_256.csv','ReadVariableNames',0);
     featNames = top256.Var1;
@@ -85,48 +65,48 @@ if useTierpsy256 % use Tierpsy256 feature set
         end
     end
     % trim down feature matrix to contain just 256 features
-    featMat = combinedTierpsyTable{fileInd, featNames}; 
-
-else % use all features
-    featMat = table2array(combinedTierpsyTable(fileInd,4:end)); 
+    featureMat = featureTable{rowLogInd, featNames};
+else
+    % use all features
+    featureMat = table2array(featureTable(rowLogInd, n_nonFeatVar+1:end));
 end
 
-% get length feature
-lengths = combinedTierpsyTable.length_50th(fileInd); 
+% get length feature separately
+lengths = featureTable.length_50th(rowLogInd); 
 
 %% analyze features with PCA
 
 % drop features with too many NaN's
-featBefore = size(featMat,2);
-numNanFeat = sum(isnan(featMat),1);
-colsToDrop = numNanFeat > numFiles*dropFeatThreshold; % get logical index for features with too many NaN's
-featMat = featMat(:,~colsToDrop);
+featBefore = size(featureMat,2);
+numNanFeat = sum(isnan(featureMat),1);
+colsToDrop = numNanFeat > n_files*dropFeatThreshold; % get logical index for features with too many NaN's
+featureMat = featureMat(:,~colsToDrop);
 disp([ num2str(nnz(colsToDrop)) ' out of  ' num2str(featBefore) ' features dropped due to too many NaN values'])
 
 % impute nan values to global mean
-featMeans = nanmean(featMat);
+featMeans = nanmean(featureMat);
 imputeCtr = 0;
-for featCtr = 1:size(featMat, 2)
-    nanInds = isnan(featMat(:, featCtr));
+for featCtr = 1:size(featureMat, 2)
+    nanInds = isnan(featureMat(:, featCtr));
     if nnz(nanInds)>0
-        featMat(nanInds, featCtr) = featMeans(featCtr);
+        featureMat(nanInds, featCtr) = featMeans(featCtr);
         imputeCtr = imputeCtr+1;
     end
 end
-disp([ num2str(imputeCtr) ' out of  ' num2str(size(featMat,2)) ' features have NaN values imputed'])
+disp([ num2str(imputeCtr) ' out of  ' num2str(size(featureMat,2)) ' features have NaN values imputed'])
 
 % drop features with zero standard deviation
-featBefore = size(featMat,2);
-featStds = std(featMat);
+featBefore = size(featureMat,2);
+featStds = std(featureMat);
 colsToDrop = featStds == 0 ; % get logical index for features with too many NaN's
-featMat = featMat(:,~colsToDrop);
+featureMat = featureMat(:,~colsToDrop);
 disp([ num2str(nnz(colsToDrop)) ' out of  ' num2str(featBefore) ' features dropped due to zero standard deviation'])
 
 % z-normalise feature matrix
-featMatNorm = normalize(featMat,1);
+featureMatNorm = normalize(featureMat,1);
 
 % do pca
-[pc, score, ~, ~, explained] = pca(featMatNorm);
+[pc, score, ~, ~, explained] = pca(featureMatNorm);
 
 % determine how many PC's are needed to explain a specied amount of variance in the data
 explainedCumSum = cumsum(explained);
@@ -134,15 +114,22 @@ minNumPC = find(explainedCumSum > minVarianceExplained,1); % the number of PC ne
 disp(['The first ' num2str(minNumPC) ' PC explain at least ' num2str(minVarianceExplained) '% of the variance in the data'])
 
 % % see what's inside the first PC
-% [feat,featIdx] = sort(pc(:,1)); % PC1 
+% [feat,featInd] = sort(pc(:,1)); % PC1 
 % if useTierpsy256
-%     featNames(featIdx)
+%     featNames(featInd)
 % else
-%     combinedTierpsyTable.Properties.VariableNames(i)'
+%     featureTable.Properties.VariableNames(featInd)'
 % end
 
-%% plot first two PCs for a number of experimental variables to assess their effect on the data
+%% Get information from features table for the relevant files
+% get days in diapause and run and bleach and camera numbers for assessment
+strainName = featureTable.strain_name(rowLogInd);
+daysDiapause = featureTable.daysDiapause(rowLogInd);
+runNum = featureTable.run(rowLogInd);
+bleachNum = featureTable.block(rowLogInd);
+camNum = featureTable.channel(rowLogInd);
 
+%% plot first two PCs for a number of experimental variables to assess their effect on the data
 % days in diapause plot: 2x2 plot, first panel all strains
 diapauseFigure = figure;
 subplot(2,2,1); hold on

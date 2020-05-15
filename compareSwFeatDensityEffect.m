@@ -9,6 +9,7 @@
 %% Things to consider:
 % 1. Classify strains based on 40 worms or 5 worms.
 % 2. plot a few skeletons
+% 3. PCA on features, colour by worm density
 
 clear
 close all
