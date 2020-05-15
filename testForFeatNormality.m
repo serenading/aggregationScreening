@@ -1,15 +1,19 @@
-%% This script uses features extracted from a control dataset to determine
-% which of the Tierpsy features have normal distribution.
-% The control dataset to use are control strains (N2, CB4856, DA609) from
-% the 2018 aggregation screening, at 5 worm density.
-% Use both Kolmogorov-Smirnov and Shapiro-Wilk tests, as n is just over 50
-% for each strain.
+%% This script uses features extracted from a control dataset to determine which of the Tierpsy features have normal distribution.
+% The control dataset to use are control strains (N2, CB4856, DA609) from the 2018 aggregation screening, at 5 worm density.
+% Use both Kolmogorov-Smirnov and Shapiro-Wilk tests, as n is just over 50 for each strain.
 % author: serenading. May 2020
 
 clear
 close all
 
 addpath('auxiliary')
+
+%% Things to consider:
+% 1. effect size for determining what's non-Gaussian
+
+%% Set analysis parameters
+bonCorr = true;
+whichTest = 'SW'; % 'KS' or 'SW' % 'SW' seems to work better, otherwise most features are not Gaussian when correcting for multiple comparison
 
 %% Import features matrices and load strains list
 featExtractTimestamp = '20191024_122847'; %'20191024_122847' or '20181203_141111'
@@ -23,7 +27,6 @@ N2LogInd = strcmp(featureTable.strain_name,'N2');
 CB4856LogInd = strcmp(featureTable.strain_name,'CB4856');
 DA609LogInd = strcmp(featureTable.strain_name,'DA609');
 controlLogInd = N2LogInd | CB4856LogInd | DA609LogInd;
-
     
 %% Go through each feature, test for normal distribution
 if ~exist('/Users/sding/Dropbox/aggScreening/results/featuresDistribution/normalitytest_pvalues.mat')
@@ -58,16 +61,38 @@ else
     load('/Users/sding/Dropbox/aggScreening/results/featuresDistribution/normalitytest_pvalues.mat','KSTestP','SWTestP', 'featNames');
 end
 
-%% Look into which features have normal distribution (p>0.05)
+%% Look into which features have normal distribution
+% Apply Bonferroni correction for multiple comparisons if specified
+if bonCorr
+    pThreshold = 0.05/n_feats;
+else
+    pThreshold = 0.05;
+end
 % Check how many tests show normal distribution using either method
-KSNormalLogInd = KSTestP > 0.05; % gives 15 nnz
-SWNormalLogInd = SWTestP > 0.05; % gives 7338 nnz
-% Check how many features have normal distribution for which strain set
-SWNormalLogInd_sum1 = sum(SWNormalLogInd,1); % shows about half of the features have normal distribution for one control strain
-SWNormalLogInd_sum2 = sum(SWNormalLogInd,2); % shows for how many control strain sets the feature is normally distributed
-% Keep record of which features have normal distribution within at least one control strain set
-SWNormalLogInd_sum2LogInd = SWNormalLogInd_sum2>=1;
-normalFeatNames = featNames(SWNormalLogInd_sum2LogInd)';
-nonNormalFeatNames = featNames(~SWNormalLogInd_sum2LogInd)';
+% set non-significant p-values to NaN
+KSNormalLogInd = KSTestP > pThreshold; % gives 15 nnz /100 MC
+SWNormalLogInd = SWTestP > pThreshold; % gives 7338 nnz /13294 MC
+if strcmp(whichTest,'KS')
+    % Check how many features have normal distribution for which strain set
+    KSNormalLogInd_sum1 = sum(KSNormalLogInd,1); % shows about half of the features have normal distribution for one control strain
+    KSNormalLogInd_sum2 = sum(KSNormalLogInd,2); % shows for how many control strain sets the feature is normally distributed
+    % Keep record of which features have normal distribution within at least one control strain set
+    KSNormalLogInd_sum2LogInd = KSNormalLogInd_sum2>=1;
+    normalFeatNames = featNames(KSNormalLogInd_sum2LogInd)';
+    nonNormalFeatNames = featNames(~KSNormalLogInd_sum2LogInd)';
+elseif strcmp(whichTest,'SW')
+    % Check how many features have normal distribution for which strain set
+    SWNormalLogInd_sum1 = sum(SWNormalLogInd,1); % shows about half of the features have normal distribution for one control strain
+    SWNormalLogInd_sum2 = sum(SWNormalLogInd,2); % shows for how many control strain sets the feature is normally distributed
+    % Keep record of which features have normal distribution within at least one control strain set
+    SWNormalLogInd_sum2LogInd = SWNormalLogInd_sum2>=1;
+    normalFeatNames = featNames(SWNormalLogInd_sum2LogInd)';
+    nonNormalFeatNames = featNames(~SWNormalLogInd_sum2LogInd)';
+else
+    error('Must specify whichTest as either KS or SW')
+end
 % save
-save('/Users/sding/Dropbox/aggScreening/results/featuresDistribution/whichFeatNormal.mat','normalFeatNames','nonNormalFeatNames');
+save(['/Users/sding/Dropbox/aggScreening/results/featuresDistribution/whichFeatNormal' whichTest 'test.mat'],'normalFeatNames','nonNormalFeatNames');
+
+%% Using SW test correcting for multiple comparison, 103 out of 4548 features are non-Gaussian. 
+% Most of these are path curvature features, some are blob features.
