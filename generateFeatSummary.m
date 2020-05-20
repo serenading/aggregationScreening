@@ -12,12 +12,22 @@ close all
 %% Import features data and combine with metadata
 
 % set which feature extraction timestamp to use
-featExtractTimestamp = '20191024_122847'; %'20191024_122847' or '20181203_141111'
+featExtractTimestamp = '20200511_162714'; %'20200511_162714' or '20191024_122847' or '20181203_141111'
+featExtractWindow = '1'; % 'none','0','1','2'
+% get date time window stamp
+if strcmp(featExtractWindow,'none')
+    extractStamp = featExtractTimestamp;
+else
+    extractStamp = [featExtractTimestamp '_window_' featExtractWindow];
+end
 
 % load features matrix, correspondong filenames, and metadata
-tierpsyFeatureTable = readtable(['/Users/sding/Dropbox/aggScreening/source/features_summary_tierpsy_plate_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
-tierpsyFileTable = readtable(['/Users/sding/Dropbox/aggScreening/source/filenames_summary_tierpsy_plate_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
+tierpsyFeatureTable = readtable(['/Users/sding/Dropbox/aggScreening/source/features_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',');%,'preserveVariableNames',true);
+tierpsyFileTable = readtable(['/Users/sding/Dropbox/aggScreening/source/filenames_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',','CommentStyle','#');%,'preserveVariableNames',true);
 metadataTable = readtable('/Users/sding/Dropbox/aggScreening/source/metadata_aggregationScreening.csv','Delimiter',',');
+
+% rename metadata column heads to match Tierpsy output
+metadataTable.Properties.VariableNames{'basename'} = 'filename';
 
 %% Join tables
 
@@ -25,24 +35,31 @@ metadataTable = readtable('/Users/sding/Dropbox/aggScreening/source/metadata_agg
 % features were not extracted for any files.
 combinedTierpsyTable = outerjoin(tierpsyFileTable,tierpsyFeatureTable,'MergeKeys',true);
 
-% get just the filenames from the full path in the combined Tierpsy table
-[~, fileNamesTierpsy] = cellfun(@fileparts, combinedTierpsyTable.file_name, 'UniformOutput', false);
-combinedTierpsyTable.file_name = strrep(fileNamesTierpsy,'_featuresN','.hdf5');
+% rename variable name to match that of metadata table if using features files from older Tierpsy versions
+if strcmp(featExtractTimestamp,'20191024_122847') |  strcmp(featExtractTimestamp,'20181203_141111')
+    combinedTierpsyTable.Properties.VariableNames{'file_name'} = 'filename';
+end
 
-% rename Tierpsy output and metadata column heads to match
-combinedTierpsyTable.Properties.VariableNames{'file_name'} = 'filename';
-metadataTable.Properties.VariableNames{'basename'} = 'filename';
-   
+% get just the filenames from the full path in the combined Tierpsy table
+[~, fileNamesTierpsy] = cellfun(@fileparts, combinedTierpsyTable.filename, 'UniformOutput', false);
+combinedTierpsyTable.filename = strrep(fileNamesTierpsy,'_featuresN','.hdf5');
+
 % finally, join tables to get strain names for each set of features
 featureTable = outerjoin(metadataTable,combinedTierpsyTable,'MergeKeys',true);
 
+% get row logical index for valid files
+rowLogInd = ~isnan(featureTable.wormNum) & featureTable.is_bad == 0 & strcmp(featureTable.is_good,'True');
+
+% trim featureTable down to those with valid files
+featureTable = featureTable(rowLogInd,:);
+
 % export full features table
-writetable(featureTable,['/Users/sding/Dropbox/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv']);
+writetable(featureTable,['/Users/sding/Dropbox/aggScreening/results/fullFeaturesTable_' extractStamp '.csv']);
 
 %% Get five worm features table with features
 
 % trim the featureTable for 5 worm files
-fiveWormLogInd = featureTable.wormNum==5 & featureTable.is_bad==0 & strcmp(featureTable.is_good,'True');
+fiveWormLogInd = featureTable.wormNum==5;
 fiveWormFeatureTable = featureTable(fiveWormLogInd,:);
 
 % sort featureTable by strain name
@@ -50,12 +67,12 @@ strainNameColIdx = find(strcmp(fiveWormFeatureTable.Properties.VariableNames,'st
 fiveWormFeatureTable = sortrows(fiveWormFeatureTable,strainNameColIdx);
 
 % export features table
-writetable(fivewormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' featExtractTimestamp '.csv']);
+writetable(fivewormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' extractStamp '.csv']);
 
 %% Get forty worm features table with features
 
 % trim the featureTable for 40 worm files
-fortyWormLogInd = featureTable.wormNum==40 & featureTable.is_bad==0 & strcmp(featureTable.is_good,'True');
+fortyWormLogInd = featureTable.wormNum==40;
 fortyWormFeatureTable = featureTable(fortyWormLogInd,:);
 
 % sort featureTable by strain name
@@ -63,7 +80,7 @@ strainNameColIdx = find(strcmp(fortyWormFeatureTable.Properties.VariableNames,'s
 fortyWormFeatureTable = sortrows(fortyWormFeatureTable,strainNameColIdx);
 
 % export features table
-writetable(fortyWormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fortyWorm/fortyWormFeaturesTable_sw_' featExtractTimestamp '.csv']);
+writetable(fortyWormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fortyWorm/fortyWormFeaturesTable_sw_' extractStamp '.csv']);
 
 %% Get forty worm features table but remove all features
 
@@ -71,4 +88,4 @@ writetable(fortyWormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/for
 fortyWormFeatureTable = fortyWormFeatureTable(:,1:17);
 
 % export features table
-writetable(fortyWormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' featExtractTimestamp '.csv']);
+writetable(fortyWormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '.csv']);

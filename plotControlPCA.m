@@ -56,12 +56,7 @@ if useTierpsy256
     top256 = readtable('./auxiliary/tierpsy_256.csv','ReadVariableNames',0);
     featNames = top256.Var1;
     % curtail featNames to max 63 characters; anything beyond this is truncated inside combinedTierpsyTable and will not match up
-    for featCtr = 1:numel(featNames)
-        featNameLength = numel(featNames{featCtr});
-        if featNameLength > 63
-            featNames{featCtr} = featNames{featCtr}(1:63);
-        end
-    end
+    featNames = shortenFeatNames(featNames);
     % trim down feature matrix to contain just 256 features
     featureMat = featureTable{rowLogInd, featNames};
 else
@@ -75,7 +70,7 @@ lengths = featureTable.length_50th(rowLogInd);
 %% analyze features with PCA
 
 % pre-process feature matrix for PCA
-featureMat = preprocess4PCA(featureMat);
+[featureMat,~] = preprocessFeatMat(featureMat);
 
 % do pca
 [pc, score, ~, ~, explained] = pca(featureMat);

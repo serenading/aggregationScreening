@@ -16,7 +16,7 @@ featureMat = table2array(featureTable(:, n_nonFeatVar+1:end));
 
 %% analyze features with PCA
 % pre-process feature matrix for PCA
-featureMat = preprocess4PCA(featureMat);
+[featureMat,~] = preprocessFeatMat(featureMat);
 % do pca
 [pc, score, ~, ~, explained] = pca(featureMat);
 
