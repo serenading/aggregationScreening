@@ -1,6 +1,14 @@
 clear
 close all
 
+%% Script uses supervised machine learning algorithms to train classifiers to discriminate between 40 vs. 5 worm videos
+% based on extracted Tierpsy features. It also has the option to apply
+% sequantial feature selection to identify top features to use for
+% classification
+
+% Todo: use the same holdout for sequential feature selection as for hold
+% out validation
+
 %% Specify analysis parameters
 
 % set which feature extraction timestamp to use
@@ -8,10 +16,13 @@ featExtractTimestamp = '20200511_162714'; %'20200511_162714' or '20191024_122847
 featExtractWindow = '1'; % 'none','0','1','2'
 n_nonFeatVar = 17;
 
+% select which features to drop or keep
+dropPathBlobFeatures = true;
+applyKeyFeaturesForClassifierTraining = false;
+
 % select which tasks to perform
-applyKeyFeaturesForClassifierTraining = true;
-trainClassifier = true;
-performSequentialFeatureSelection = false;
+trainClassifier = false;
+performSequentialFeatureSelection = true;
 
 % get date time window stamp
 if strcmp(featExtractWindow,'none')
@@ -34,12 +45,10 @@ wormNums = featureTable.wormNum; % get classification labels
 featureTable = featureTable(:,n_nonFeatVar+1:end); % get full features matrix
 % shortens the names of features
 featureTable = shortenFeatNamesInFeatTable(featureTable);
-% % Drop dorsal-ventral features from the feature table
-% featuresTable = dropDVFeats(featuresTable);
 % Drop path-related and blob features as these are already expected to be good predictors for this task due to tracking artefacts
-featLogInd = ~contains(featureTable.Properties.VariableNames,'path') &...
-    ~contains(featureTable.Properties.VariableNames,'blob');
-featureTable = featureTable(:,featLogInd);
+if dropPathBlobFeatures
+    featuresTable = dropPathBlobFeats(featuresTable);
+end
 
 %% Pre-process features matrix and turn back into table
 % drop NaN's, z-normalise, etc. from feature table

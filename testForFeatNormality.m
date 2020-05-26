@@ -16,8 +16,11 @@ bonCorr = true;
 whichTest = 'SW'; % 'KS' or 'SW' % 'SW' seems to work better, otherwise most features are not Gaussian when correcting for multiple comparison
 
 %% Import features matrices and load strains list
-featExtractTimestamp = '20191024_122847'; %'20191024_122847' or '20181203_141111'
-featureTable = readtable(['/Users/sding/Dropbox/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
+% set which feature extraction timestamp to use
+featExtractTimestamp = '20191024_122847';
+extractStamp = featExtractTimestamp;
+
+featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' extractStamp '.csv'],'Delimiter',',','preserveVariableNames',true);
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features
 n_feats = size(featureTable,2)-n_nonFeatVar;
 featNames = featureTable.Properties.VariableNames(n_nonFeatVar+1:end);
@@ -29,7 +32,8 @@ DA609LogInd = strcmp(featureTable.strain_name,'DA609');
 controlLogInd = N2LogInd | CB4856LogInd | DA609LogInd;
     
 %% Go through each feature, test for normal distribution
-if ~exist('/Users/sding/Dropbox/aggScreening/results/featuresDistribution/normalitytest_pvalues.mat')
+testValFilename = ['/Users/sding/OneDrive - Imperial College London/aggScreening/results/featuresDistribution/normalitytest_pvalues_' extractStamp '.mat'];
+if ~exist(testValFilename)
 
     % Initialise matrix to hold p values
     KSTestP = NaN(n_feats,4);
@@ -56,9 +60,9 @@ if ~exist('/Users/sding/Dropbox/aggScreening/results/featuresDistribution/normal
     end
     
     %% Save p value table
-    save('/Users/sding/Dropbox/aggScreening/results/featuresDistribution/normalitytest_pvalues.mat','KSTestP','SWTestP','featNames');
+    save(testValFilename,'SWTestP','featNames');
 else
-    load('/Users/sding/Dropbox/aggScreening/results/featuresDistribution/normalitytest_pvalues.mat','KSTestP','SWTestP', 'featNames');
+    load(testValFilename,'KSTestP','SWTestP', 'featNames');
 end
 
 %% Look into which features have normal distribution
@@ -92,7 +96,13 @@ else
     error('Must specify whichTest as either KS or SW')
 end
 % save
-save(['/Users/sding/Dropbox/aggScreening/results/featuresDistribution/whichFeatNormal' whichTest 'test.mat'],'normalFeatNames','nonNormalFeatNames');
+save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/featuresDistribution/whichFeatNormal' whichTest 'test_' extractStamp '.mat'],'normalFeatNames','nonNormalFeatNames');
+% generate short version of feat names for older versions of the features
+if strcmp(featExtractTimestamp,'20191024_122847')
+    nonNormalFeatNames = cellfun(@(x) strrep(strrep(strrep(x,'angular','ang'),'relative','rel'),'velocity','vel'), nonNormalFeatNames, 'UniformOutput', false);
+    normalFeatNames = cellfun(@(x) strrep(strrep(strrep(x,'angular','ang'),'relative','rel'),'velocity','vel'), normalFeatNames, 'UniformOutput', false);
+    save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/featuresDistribution/whichFeatNormal' whichTest 'test_short_' extractStamp '.mat'],'normalFeatNames','nonNormalFeatNames');
+end
 
 %% Using SW test correcting for multiple comparison, 103 out of 4548 features are non-Gaussian. 
 % Most of these are path curvature features, some are blob features.

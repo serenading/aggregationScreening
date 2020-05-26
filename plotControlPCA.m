@@ -14,7 +14,7 @@ strains = {'N2','DA609','CB4856'};
 wormNums = 5; % 5, or, 40, or [5, 40]
 
 % which features table to load
-featExtractTimestamp = '20191024_122847'; %'20191024_122847' or '20181203_141111'
+featExtractTimestamp = '20200519_153722'; %'20200519_153722' or '20191024_122847' or '20181203_141111'
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
 
 % which features to use for PCA
@@ -29,7 +29,7 @@ useVariablePCs = false; % True: use hand-determined number of PC's for each test
 minVarianceExplained = 60; % minium variance threshold (in %) to determine the number of PC needed.
 
 %% Load features table
-featureTable = readtable(['/Users/sding/Dropbox/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
+featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
 
 %% Get rows corresponding to specified strain and worm number
 % compile logical index by strain

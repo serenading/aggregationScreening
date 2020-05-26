@@ -1,4 +1,4 @@
-%% script performs PCA analysis with all features from all recordings in the full dataset, and plots in shared PC space
+%% script performs PCA analysis with all features from all recordings (both 40 and 5 worms) in the full dataset, and plots in shared PC space
 % author: @serenading May 2020
 
 clear
@@ -7,14 +7,19 @@ close all
 addpath('auxiliary/')
 
 %% Set parameters
-featExtractTimestamp = '20191024_122847'; %'20191024_122847' or '20181203_141111'
+featExtractTimestamp = '20200519_153722'; %'20200519_153722','20191024_122847' or '20181203_141111'
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
+dropPathBlobFeatures = true;
 
 %% Load features table and extract features matrix
-featureTable = readtable(['/Users/sding/Dropbox/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
+featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
+if dropPathBlobFeatures
+    featureTable = dropPathBlobFeats(featureTable);
+end
 featureMat = table2array(featureTable(:, n_nonFeatVar+1:end));
 
 %% analyze features with PCA
+
 % pre-process feature matrix for PCA
 [featureMat,~] = preprocessFeatMat(featureMat);
 % do pca
@@ -36,7 +41,7 @@ plot(score(fiveLogInd,1),score(fiveLogInd,2),'b.')
 xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
 ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
 legend({'40 worms','5 worms'})
-title('PCA plot with 198 strains and 4548 feature set')
+title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
 
 % by strain
 strainFig = figure; hold on
@@ -51,4 +56,29 @@ plot(score(DA609LogInd,1),score(DA609LogInd,2),'b.')
 xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
 ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
 legend({'others','N2','CB4856','DA609',})
-title('PCA plot with 198 strains and 4548 feature set')
+title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
+
+%% plot first three PCs and colour by different variables of interest
+% by worm number
+figure; 
+scatter3(score(fortyLogInd,1),score(fortyLogInd,2),score(fortyLogInd,3),'r.')
+hold on
+scatter3(score(fiveLogInd,1),score(fiveLogInd,2),score(fiveLogInd,3),'b.')
+xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
+ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
+zlabel(['PC3 (' num2str(round(explained(3))) ')%'])
+legend({'40 worms','5 worms'})
+title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
+
+% by strain
+figure;
+scatter3(score(otherStrainsLogInd,1),score(otherStrainsLogInd,2),score(otherStrainsLogInd,3),'y.')
+hold on
+scatter3(score(N2LogInd,1),score(N2LogInd,2),score(N2LogInd,3),'c.')
+scatter3(score(CB4856LogInd,1),score(CB4856LogInd,2),score(CB4856LogInd,3),'r.')
+scatter3(score(DA609LogInd,1),score(DA609LogInd,2),score(DA609LogInd,3),'b.')
+xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
+ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
+zlabel(['PC3 (' num2str(round(explained(3))) ')%'])
+legend({'others','N2','CB4856','DA609',})
+title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])

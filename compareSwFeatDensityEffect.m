@@ -1,6 +1,6 @@
 %% This script analyses density effects in isolated single (skeletonisable) worms, 
 %% using automatically extracted Tierpsy features from 5 vs. 40 worm experiments.
-% Significance is determined by two-sample t-test if the feature is Gaussian, and by ranksum test if the feature is not.
+% Optional: Significance is determined by two-sample t-test if the feature is Gaussian, and by ranksum test if the feature is not.
 % keyStrains are strains with higher than featThresh fraction of features altered between the two densities;
 % keyFeats are feats that are altered in higher than strainThresh fraction of strains between the two densities.
 
@@ -15,14 +15,26 @@ clear
 close all
 
 %% Set analysis parameters
-bonCorr = true; % apply Bonferroni correction for multiple comparisons
-featExtractTimestamp = '20191024_122847'; %'20191024_122847' or '20181203_141111'
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
+featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3006),'20200511_162714' (feat 3006 three windows) or '20191024_122847' (feat 4548) or '20181203_141111' (feat 4548)
+if strcmp(featExtractTimestamp,'20200511_162714')
+    featExtractWindow = '2'; %'0','1','2'
+    extractStamp = [featExtractTimestamp '_window_' featExtractWindow];
+else
+    extractStamp = featExtractTimestamp;
+end
+
+dropPathBlobFeatures = true;
 featThresh = 0.1; % fraction of altered features to quality a strain as keyStrain
 strainThresh = 0.1; % fraction of strains to quality an altered feature as keyFeat
+whichTest = 't'; % 'mixed','t','ranksum';
+bonCorr = true; % apply Bonferroni correction for multiple comparisons
 
 %% Import features matrices and load strains list
-featureTable = readtable(['/Users/sding/Dropbox/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
+featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' extractStamp '.csv'],'Delimiter',',','preserveVariableNames',true);
+if dropPathBlobFeatures
+    featureTable = dropPathBlobFeats(featureTable);
+end
 load('strainsList/all.mat','strains')
 n_feats = size(featureTable,2)-n_nonFeatVar;
 n_strains = numel(strains);
@@ -30,11 +42,18 @@ featNames = featureTable.Properties.VariableNames(n_nonFeatVar+1:end);
 featureMat = table2array(featureTable(:,n_nonFeatVar+1:end)); % featureMat is basically featureTable without the first 17 columns of non feature-value entries.
 
 %% Conduct t-test and fill in p-values
-if ~exist('/Users/sding/Dropbox/aggScreening/results/densityDependence_sw/strainByFeat_mixedtest_pvalues.mat')
+testValFilename = ['/Users/sding/OneDrive - Imperial College London/aggScreening/results/densityDependence_sw/strainByFeat_' whichTest 'test_pvalues' extractStamp '.mat'];
+if dropPathBlobFeatures
+    testValFilename = strrep(testValFilename,'.mat','_noPathBlob.mat');
+end
+if ~exist(testValFilename)
     % Initiate new matrix to contain significant results
     swDensityEffectP = NaN(n_strains,n_feats); % double precision for p-values
-    % Get the list of which strains are normally distributed
-    load('/Users/sding/Dropbox/aggScreening/results/featuresDistribution/whichFeatNormalSWTest.mat','normalFeatNames','nonNormalFeatNames');
+    if strcmp(whichTest,'mixed')
+        % Get the list of which strains are normally distributed
+        % this list does not work for feat 3006.
+        load('/Users/sding/OneDrive - Imperial College London/aggScreening/results/featuresDistribution/whichFeatNormalSWTest.mat','normalFeatNames','nonNormalFeatNames');
+    end
     % Go through strain by strain
     for strainCtr = 1:numel(strains)
         strain = char(strains(strainCtr));
@@ -44,12 +63,20 @@ if ~exist('/Users/sding/Dropbox/aggScreening/results/densityDependence_sw/strain
         for featCtr = 1: size(featureMat,2)
             fiveFeatVal = featureMat(fiveLogInd,featCtr);
             fortyFeatVal = featureMat(fortyLogInd,featCtr);
-            if ismember(featNames(featCtr),normalFeatNames)
+            if strcmp(whichTest,'mixed')
+                if ismember(featNames(featCtr),normalFeatNames)
+                    [~,p] = ttest2(fiveFeatVal,fortyFeatVal);
+                elseif ismember(featNames(featCtr),nonNormalFeatNames)
+                    p = ranksum(fiveFeatVal,fortyFeatVal);
+                else
+                    error(['The feature ' featNames{featCtr} ' is not pre-classified as having a normal distribution or not.'])
+                end
+            elseif strcmp(whichTest,'t')
                 [~,p] = ttest2(fiveFeatVal,fortyFeatVal);
-            elseif ismember(featNames(featCtr),nonNormalFeatNames)
-                p = ranksum(fiveFeatVal,fortyFeatVal);
+            elseif strcmp(whichTest,'ranksum')
+                 p = ranksum(fiveFeatVal,fortyFeatVal);
             else
-                error('This feature is not pre-classified as having a normal distribution or not.')
+                error('Please specify a valid whichTest')
             end
             % Save p-value
             swDensityEffectP(strainCtr,featCtr) = p;
@@ -57,9 +84,9 @@ if ~exist('/Users/sding/Dropbox/aggScreening/results/densityDependence_sw/strain
         % Display progress
         disp(['All features compared for ' num2str(strainCtr) ' out of ' num2str(n_strains) ' strains.'])
     end
-    save('/Users/sding/Dropbox/aggScreening/results/densityDependence_sw/strainByFeat_mixedtest_pvalues.mat','swDensityEffectP','strains','featNames');
+    save(testValFilename,'swDensityEffectP','strains','featNames');
 else
-    load('/Users/sding/Dropbox/aggScreening/results/densityDependence_sw/strainByFeat_mixedtest_pvalues.mat','swDensityEffectP','strains','featNames')
+    load(testValFilename,'swDensityEffectP','strains','featNames')
 end
 
 %% Look into what's throwing significance...
@@ -93,7 +120,6 @@ if keyStrainCtr>1
 else
     disp(['No strain show density-dependence in at least ' num2str(featThresh*100) '% of all features.'])
 end
-%save(['/Users/sding/Dropbox/aggScreening/results/densityDependence_sw/keyStrains_p_' num2str(pThreshold) '.mat'],'keyStrains','n_sigFeat_keyStrains');
 figure; histogram(featsRatio)
 xlabel('proportion of features showing density dependence')
 ylabel('number of strains')
@@ -150,13 +176,50 @@ keyFeatsLogInd = ~cellfun(@(x) contains(x,'path'), keyFeats) & ~cellfun(@(x) con
 keyFeats2check = keyFeats(keyFeatsLogInd);
 
 %% Display mean values for the key features at each density
-strain2check = 'CB4856';
+figure;
+strains2check = {'N2','DA609','CB4856'};
+% go through each keyFeat
 for keyFeatCtr = 1:numel(keyFeats2check)
     keyFeat2check = keyFeats2check{keyFeatCtr};
     keyFeatColIdx = find(strcmp(featureTable.Properties.VariableNames,keyFeat2check));
-    fortyRowLogInd = strcmp(featureTable.strain_name,strain2check) & featureTable.wormNum==40;
-    fiveRowLogInd = strcmp(featureTable.strain_name,strain2check) & featureTable.wormNum==5;
-    fortyFeatMean = mean(table2array(featureTable(fortyRowLogInd,keyFeatColIdx)));
-    fiveFeatMean = mean(table2array(featureTable(fiveRowLogInd,keyFeatColIdx)));
-    disp(['In ' strain2check ', ' keyFeat2check ' is ' num2str(fortyFeatMean) ' at 40 worm density and ' num2str(fiveFeatMean) ' at 5 worm density.'])
+    % initiate
+    boxplotVals = [];
+    densityLabels = [];
+    strainLabels = [];
+    groupCtr = 1;
+    % add boxplot info
+    fortyRowLogInd = featureTable.wormNum==40;
+    fiveRowLogInd = featureTable.wormNum==5;
+    boxplotVals = vertcat(boxplotVals,table2array(featureTable(fortyRowLogInd,keyFeatColIdx)));
+    boxplotVals = vertcat(boxplotVals,table2array(featureTable(fiveRowLogInd,keyFeatColIdx)));
+    densityLabels = vertcat(densityLabels, 40*ones(nnz(fortyRowLogInd),1));
+    densityLabels = vertcat(densityLabels, 5*ones(nnz(fiveRowLogInd),1));
+    strainLabels = vertcat(strainLabels, groupCtr*ones(nnz(fortyRowLogInd),1));
+    groupCtr = groupCtr+1;
+    strainLabels = vertcat(strainLabels, groupCtr*ones(nnz(fiveRowLogInd),1));
+    groupCtr = groupCtr+1;
+%     fortyFeatMean = mean(table2array(featureTable(fortyRowLogInd,keyFeatColIdx)));
+%     fiveFeatMean = mean(table2array(featureTable(fiveRowLogInd,keyFeatColIdx)));
+%     disp([sprintf('\n') 'In all strains, ' keyFeat2check ' is ' num2str(fortyFeatMean) ' at 40 worm density and ' num2str(fiveFeatMean) ' at 5 worm density.'])
+    for strainCtr = 1:numel(strains2check)
+        strain = strains2check{strainCtr};
+        fortyStrainRowLogInd = strcmp(featureTable.strain_name,strain) & featureTable.wormNum==40;
+        fiveStrainRowLogInd = strcmp(featureTable.strain_name,strain) & featureTable.wormNum==5;
+%         fortyStrainFeatMean = mean(table2array(featureTable(fortyStrainRowLogInd,keyFeatColIdx)));
+%         fiveStrainFeatMean = mean(table2array(featureTable(fiveStrainRowLogInd,keyFeatColIdx)));
+%         disp(['In ' strain ', ' keyFeat2check ' is ' num2str(fortyStrainFeatMean) ' at 40 worm density and ' num2str(fiveStrainFeatMean) ' at 5 worm density.'])
+        boxplotVals = vertcat(boxplotVals,table2array(featureTable(fortyStrainRowLogInd,keyFeatColIdx)));
+        boxplotVals = vertcat(boxplotVals,table2array(featureTable(fiveStrainRowLogInd,keyFeatColIdx)));
+        densityLabels = vertcat(densityLabels, 40*ones(nnz(fortyStrainRowLogInd),1));
+        densityLabels = vertcat(densityLabels, 5*ones(nnz(fiveStrainRowLogInd),1));
+        strainLabels = vertcat(strainLabels, groupCtr*ones(nnz(fortyStrainRowLogInd),1));
+        groupCtr = groupCtr+1;
+        strainLabels = vertcat(strainLabels, groupCtr*ones(nnz(fiveStrainRowLogInd),1));
+        groupCtr = groupCtr+1;
+    end
+    % plot boxplot
+    subplot(2,4,keyFeatCtr);
+    boxplot(boxplotVals,strainLabels,'Labels',{'all_40','all_5','N2_40','N2_5','DA609_40','DA609_5','CB4856_40','CB4856_5'},...
+        'PlotStyle','compact','BoxStyle','filled','ColorGroup',densityLabels);
+    title(keyFeats2check{keyFeatCtr},'Interpreter','None')
 end

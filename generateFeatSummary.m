@@ -12,8 +12,8 @@ close all
 %% Import features data and combine with metadata
 
 % set which feature extraction timestamp to use
-featExtractTimestamp = '20200511_162714'; %'20200511_162714' or '20191024_122847' or '20181203_141111'
-featExtractWindow = '1'; % 'none','0','1','2'
+featExtractTimestamp = '20200511_162714'; %'20200519_153722' or '20200511_162714' (windows) or '20191024_122847' or '20181203_141111'
+featExtractWindow = '2'; % 'none','0','1','2'
 % get date time window stamp
 if strcmp(featExtractWindow,'none')
     extractStamp = featExtractTimestamp;
@@ -22,9 +22,9 @@ else
 end
 
 % load features matrix, correspondong filenames, and metadata
-tierpsyFeatureTable = readtable(['/Users/sding/Dropbox/aggScreening/source/features_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',');%,'preserveVariableNames',true);
-tierpsyFileTable = readtable(['/Users/sding/Dropbox/aggScreening/source/filenames_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',','CommentStyle','#');%,'preserveVariableNames',true);
-metadataTable = readtable('/Users/sding/Dropbox/aggScreening/source/metadata_aggregationScreening.csv','Delimiter',',');
+tierpsyFeatureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/source/features_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',');%,'preserveVariableNames',true);
+tierpsyFileTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/source/filenames_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',','CommentStyle','#');%,'preserveVariableNames',true);
+metadataTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/source/metadata_aggregationScreening.csv','Delimiter',',');
 
 % rename metadata column heads to match Tierpsy output
 metadataTable.Properties.VariableNames{'basename'} = 'filename';
@@ -54,7 +54,7 @@ rowLogInd = ~isnan(featureTable.wormNum) & featureTable.is_bad == 0 & strcmp(fea
 featureTable = featureTable(rowLogInd,:);
 
 % export full features table
-writetable(featureTable,['/Users/sding/Dropbox/aggScreening/results/fullFeaturesTable_' extractStamp '.csv']);
+writetable(featureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' extractStamp '.csv']);
 
 %% Get five worm features table with features
 
@@ -67,7 +67,7 @@ strainNameColIdx = find(strcmp(fiveWormFeatureTable.Properties.VariableNames,'st
 fiveWormFeatureTable = sortrows(fiveWormFeatureTable,strainNameColIdx);
 
 % export features table
-writetable(fivewormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' extractStamp '.csv']);
+writetable(fiveWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' extractStamp '.csv']);
 
 %% Get forty worm features table with features
 
@@ -80,7 +80,7 @@ strainNameColIdx = find(strcmp(fortyWormFeatureTable.Properties.VariableNames,'s
 fortyWormFeatureTable = sortrows(fortyWormFeatureTable,strainNameColIdx);
 
 % export features table
-writetable(fortyWormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fortyWorm/fortyWormFeaturesTable_sw_' extractStamp '.csv']);
+writetable(fortyWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_sw_' extractStamp '.csv']);
 
 %% Get forty worm features table but remove all features
 
@@ -88,4 +88,4 @@ writetable(fortyWormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/for
 fortyWormFeatureTable = fortyWormFeatureTable(:,1:17);
 
 % export features table
-writetable(fortyWormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '.csv']);
+writetable(fortyWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '.csv']);
