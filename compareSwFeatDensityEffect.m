@@ -6,13 +6,10 @@
 
 % author: serenading. May 2020
 
-%% Things to consider:
-% 1. Classify strains based on 40 worms or 5 worms.
-% 2. plot a few skeletons
-% 3. PCA on features, colour by worm density
-
 clear
 close all
+
+addpath('auxiliary/')
 
 %% Set analysis parameters
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
@@ -24,7 +21,7 @@ else
     extractStamp = featExtractTimestamp;
 end
 
-dropPathBlobFeatures = true;
+feats2drop = {'path','blob'}; % {} if none, or cell array of strings specifying features to drop {'path','blob'}.
 featThresh = 0.1; % fraction of altered features to quality a strain as keyStrain
 strainThresh = 0.1; % fraction of strains to quality an altered feature as keyFeat
 whichTest = 't'; % 'mixed','t','ranksum';
@@ -32,9 +29,6 @@ bonCorr = true; % apply Bonferroni correction for multiple comparisons
 
 %% Import features matrices and load strains list
 featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' extractStamp '.csv'],'Delimiter',',','preserveVariableNames',true);
-if dropPathBlobFeatures
-    featureTable = dropPathBlobFeats(featureTable);
-end
 load('strainsList/all.mat','strains')
 n_feats = size(featureTable,2)-n_nonFeatVar;
 n_strains = numel(strains);
@@ -43,9 +37,6 @@ featureMat = table2array(featureTable(:,n_nonFeatVar+1:end)); % featureMat is ba
 
 %% Conduct t-test and fill in p-values
 testValFilename = ['/Users/sding/OneDrive - Imperial College London/aggScreening/results/densityDependence_sw/strainByFeat_' whichTest 'test_pvalues' extractStamp '.mat'];
-if dropPathBlobFeatures
-    testValFilename = strrep(testValFilename,'.mat','_noPathBlob.mat');
-end
 if ~exist(testValFilename)
     % Initiate new matrix to contain significant results
     swDensityEffectP = NaN(n_strains,n_feats); % double precision for p-values
@@ -87,6 +78,17 @@ if ~exist(testValFilename)
     save(testValFilename,'swDensityEffectP','strains','featNames');
 else
     load(testValFilename,'swDensityEffectP','strains','featNames')
+end
+
+%% Drop specified features from analysis
+if ~isempty(feats2drop)
+    [featureTable, dropLogInd] = dropFeats(featureTable,feats2drop);
+    dropLogInd = dropLogInd(n_nonFeatVar+1:end);
+    assert(numel(dropLogInd) == size(swDensityEffectP,2));
+    swDensityEffectP = swDensityEffectP(:,~dropLogInd);
+    featNames = featNames(~dropLogInd);
+    n_feats = numel(featNames);
+    assert(size(featureTable,2)-n_nonFeatVar == size(swDensityEffectP,2));
 end
 
 %% Look into what's throwing significance...
@@ -169,57 +171,50 @@ ylabel('number of features')
 %     {'relative_to_head_base_radial_velocity_head_tip_w_backward_50th'}
 %     {'d_speed_w_backward_50th'                                       }
 %     {'orientation_food_edge_w_forward_IQR'                           }
-%% other path-related and blob features are likely just sensitive to tracking at different densities. keyFeats total = 77. no keyStrain
 
-%% Extract likely keyFeats by ignoring the ones that are likely feature calculation or tracking artifacts
-keyFeatsLogInd = ~cellfun(@(x) contains(x,'path'), keyFeats) & ~cellfun(@(x) contains(x,'blob'), keyFeats);
-keyFeats2check = keyFeats(keyFeatsLogInd);
+%% Plot key feature distributions
+keyFeats'
+strains2plot = {'N2','DA609','CB4856'};
 
-%% Display mean values for the key features at each density
 figure;
-strains2check = {'N2','DA609','CB4856'};
 % go through each keyFeat
-for keyFeatCtr = 1:numel(keyFeats2check)
-    keyFeat2check = keyFeats2check{keyFeatCtr};
-    keyFeatColIdx = find(strcmp(featureTable.Properties.VariableNames,keyFeat2check));
+n_keyFeats = numel(keyFeats);
+for keyFeatCtr = 1:n_keyFeats
+    keyFeat = keyFeats{keyFeatCtr};
+    keyFeatColIdx = find(strcmp(featureTable.Properties.VariableNames,keyFeat));
     % initiate
-    boxplotVals = [];
-    densityLabels = [];
-    strainLabels = [];
     groupCtr = 1;
-    % add boxplot info
+    % add violin plot info
+    % 40, all strains
     fortyRowLogInd = featureTable.wormNum==40;
+    violinplotVals{:,groupCtr} = table2array(featureTable(fortyRowLogInd,keyFeatColIdx));
+    groupCtr = groupCtr+1;
+    % 5, all strains
     fiveRowLogInd = featureTable.wormNum==5;
-    boxplotVals = vertcat(boxplotVals,table2array(featureTable(fortyRowLogInd,keyFeatColIdx)));
-    boxplotVals = vertcat(boxplotVals,table2array(featureTable(fiveRowLogInd,keyFeatColIdx)));
-    densityLabels = vertcat(densityLabels, 40*ones(nnz(fortyRowLogInd),1));
-    densityLabels = vertcat(densityLabels, 5*ones(nnz(fiveRowLogInd),1));
-    strainLabels = vertcat(strainLabels, groupCtr*ones(nnz(fortyRowLogInd),1));
+    violinplotVals{:,groupCtr} = table2array(featureTable(fiveRowLogInd,keyFeatColIdx));
     groupCtr = groupCtr+1;
-    strainLabels = vertcat(strainLabels, groupCtr*ones(nnz(fiveRowLogInd),1));
-    groupCtr = groupCtr+1;
-%     fortyFeatMean = mean(table2array(featureTable(fortyRowLogInd,keyFeatColIdx)));
-%     fiveFeatMean = mean(table2array(featureTable(fiveRowLogInd,keyFeatColIdx)));
-%     disp([sprintf('\n') 'In all strains, ' keyFeat2check ' is ' num2str(fortyFeatMean) ' at 40 worm density and ' num2str(fiveFeatMean) ' at 5 worm density.'])
-    for strainCtr = 1:numel(strains2check)
-        strain = strains2check{strainCtr};
+    % strain by strain
+    for strainCtr = 1:numel(strains2plot)
+        strain = strains2plot{strainCtr};
+        % 40
         fortyStrainRowLogInd = strcmp(featureTable.strain_name,strain) & featureTable.wormNum==40;
-        fiveStrainRowLogInd = strcmp(featureTable.strain_name,strain) & featureTable.wormNum==5;
-%         fortyStrainFeatMean = mean(table2array(featureTable(fortyStrainRowLogInd,keyFeatColIdx)));
-%         fiveStrainFeatMean = mean(table2array(featureTable(fiveStrainRowLogInd,keyFeatColIdx)));
-%         disp(['In ' strain ', ' keyFeat2check ' is ' num2str(fortyStrainFeatMean) ' at 40 worm density and ' num2str(fiveStrainFeatMean) ' at 5 worm density.'])
-        boxplotVals = vertcat(boxplotVals,table2array(featureTable(fortyStrainRowLogInd,keyFeatColIdx)));
-        boxplotVals = vertcat(boxplotVals,table2array(featureTable(fiveStrainRowLogInd,keyFeatColIdx)));
-        densityLabels = vertcat(densityLabels, 40*ones(nnz(fortyStrainRowLogInd),1));
-        densityLabels = vertcat(densityLabels, 5*ones(nnz(fiveStrainRowLogInd),1));
-        strainLabels = vertcat(strainLabels, groupCtr*ones(nnz(fortyStrainRowLogInd),1));
+        violinplotVals{:,groupCtr} = table2array(featureTable(fortyStrainRowLogInd,keyFeatColIdx));
         groupCtr = groupCtr+1;
-        strainLabels = vertcat(strainLabels, groupCtr*ones(nnz(fiveStrainRowLogInd),1));
+        % 5
+        fiveStrainRowLogInd = strcmp(featureTable.strain_name,strain) & featureTable.wormNum==5;
+        violinplotVals{:,groupCtr} = table2array(featureTable(fiveStrainRowLogInd,keyFeatColIdx));
         groupCtr = groupCtr+1;
     end
-    % plot boxplot
-    subplot(2,4,keyFeatCtr);
-    boxplot(boxplotVals,strainLabels,'Labels',{'all_40','all_5','N2_40','N2_5','DA609_40','DA609_5','CB4856_40','CB4856_5'},...
-        'PlotStyle','compact','BoxStyle','filled','ColorGroup',densityLabels);
-    title(keyFeats2check{keyFeatCtr},'Interpreter','None')
+    % plot boxplot/violin plot
+    if n_keyFeats <10
+        subplot(2,ceil(numel(keyFeats)/2),keyFeatCtr);
+    else
+        subplot(3,ceil(numel(keyFeats)/3),keyFeatCtr);
+    end
+    violin(violinplotVals,'facecolor',[1 0 0;0 0 1;1 0 0;0 0 1;1 0 0;0 0 1;1 0 0;0 0 1]);
+    xticks([2,4,6,8])
+    xticklabels(['all',strains2plot])
+    legend off
+    title(keyFeats{keyFeatCtr},'Interpreter','None')
 end
+legend({'40','Mean','Median','5'}) % add legend to final violin plot
