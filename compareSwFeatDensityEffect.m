@@ -1,6 +1,6 @@
 %% This script analyses density effects in isolated single (skeletonisable) worms, 
 %% using automatically extracted Tierpsy features from 5 vs. 40 worm experiments.
-% Optional: Significance is determined by two-sample t-test if the feature is Gaussian, and by ranksum test if the feature is not.
+% Optional: When "mixed" test is selected, significance is determined by two-sample t-test if the feature is Gaussian, and by ranksum test if the feature is not.
 % keyStrains are strains with higher than featThresh fraction of features altered between the two densities;
 % keyFeats are feats that are altered in higher than strainThresh fraction of strains between the two densities.
 
@@ -13,18 +13,19 @@ addpath('auxiliary/')
 
 %% Set analysis parameters
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
-featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3006),'20200511_162714' (feat 3006 three windows) or '20191024_122847' (feat 4548) or '20181203_141111' (feat 4548)
+featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3016),'20200511_162714' (feat 3016 three windows) or '20191024_122847' (feat 4548) or '20181203_141111' (feat 4548)
 if strcmp(featExtractTimestamp,'20200511_162714')
-    featExtractWindow = '2'; %'0','1','2'
+    featExtractWindow = '1'; %'0','1','2'
     extractStamp = [featExtractTimestamp '_window_' featExtractWindow];
 else
     extractStamp = featExtractTimestamp;
 end
 
-feats2drop = {'path','blob'}; % {} if none, or cell array of strings specifying features to drop {'path','blob'}.
+dropFeatThreshold = 0.2; % the maximum fraction of NaN values that a feature can have before being dropped
+feats2drop = {'path'}; % {} if none, or cell array of strings specifying features to drop {'path','blob'}.
 featThresh = 0.1; % fraction of altered features to quality a strain as keyStrain
 strainThresh = 0.1; % fraction of strains to quality an altered feature as keyFeat
-whichTest = 't'; % 'mixed','t','ranksum';
+whichTest = 't'; % 'mixed','t'
 bonCorr = true; % apply Bonferroni correction for multiple comparisons
 
 %% Import features matrices and load strains list
@@ -36,14 +37,15 @@ featNames = featureTable.Properties.VariableNames(n_nonFeatVar+1:end);
 featureMat = table2array(featureTable(:,n_nonFeatVar+1:end)); % featureMat is basically featureTable without the first 17 columns of non feature-value entries.
 
 %% Conduct t-test and fill in p-values
-testValFilename = ['/Users/sding/OneDrive - Imperial College London/aggScreening/results/densityDependence_sw/strainByFeat_' whichTest 'test_pvalues' extractStamp '.mat'];
+testValFilename = ['/Users/sding/OneDrive - Imperial College London/aggScreening/results/densityDependence_sw/strainByFeat_' whichTest 'test_pvalues_' extractStamp '.mat'];
 if ~exist(testValFilename)
     % Initiate new matrix to contain significant results
     swDensityEffectP = NaN(n_strains,n_feats); % double precision for p-values
-    if strcmp(whichTest,'mixed')
-        % Get the list of which strains are normally distributed
-        % this list does not work for feat 3006.
-        load('/Users/sding/OneDrive - Imperial College London/aggScreening/results/featuresDistribution/whichFeatNormalSWTest.mat','normalFeatNames','nonNormalFeatNames');
+    % Get the list of which features have too many NaN and are normally distributed
+    if strcmp(featExtractTimestamp,'20200511_162714')
+        load('/Users/sding/OneDrive - Imperial College London/aggScreening/results/featuresDistribution/whichFeatNormalSWTest_20200519_153722.mat','normalFeatNames','nonNormalFeatNames','NaNFeatNames');
+    else
+        load(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/featuresDistribution/whichFeatNormalSWTest_' extractStamp '.mat'],'normalFeatNames','nonNormalFeatNames','NaNFeatNames');
     end
     % Go through strain by strain
     for strainCtr = 1:numel(strains)
@@ -59,13 +61,15 @@ if ~exist(testValFilename)
                     [~,p] = ttest2(fiveFeatVal,fortyFeatVal);
                 elseif ismember(featNames(featCtr),nonNormalFeatNames)
                     p = ranksum(fiveFeatVal,fortyFeatVal);
-                else
-                    error(['The feature ' featNames{featCtr} ' is not pre-classified as having a normal distribution or not.'])
                 end
             elseif strcmp(whichTest,'t')
-                [~,p] = ttest2(fiveFeatVal,fortyFeatVal);
+                if ~ismember(featNames(featCtr),NaNFeatNames)
+                    [~,p] = ttest2(fiveFeatVal,fortyFeatVal);
+                end
             elseif strcmp(whichTest,'ranksum')
-                 p = ranksum(fiveFeatVal,fortyFeatVal);
+                if ~ismember(featNames(featCtr),NaNFeatNames)
+                    p = ranksum(fiveFeatVal,fortyFeatVal);
+                end
             else
                 error('Please specify a valid whichTest')
             end

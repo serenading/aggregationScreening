@@ -15,7 +15,7 @@ n_featsStart = size(featureMat,2);
 featBefore = size(featureMat,2);
 numNanFeat = sum(isnan(featureMat),1);
 n_files = size(featureMat,1);
-colsToDrop = numNanFeat > n_files*dropFeatThreshold; % get logical index for features with too many NaN's
+colsToDrop = numNanFeat > n_files*dropFeatThreshold; % getindex for features with too many NaN's
 featureMat = featureMat(:,~colsToDrop);
 disp([ num2str(nnz(colsToDrop)) ' out of  ' num2str(featBefore) ' features dropped due to too many NaN values'])
 droppedCols = [droppedCols find(colsToDrop)];

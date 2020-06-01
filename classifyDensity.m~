@@ -1,5 +1,5 @@
-clear
-close all
+%clear
+%close all
 
 %% Script uses supervised machine learning algorithms to train classifiers to discriminate between 40 vs. 5 worm videos
 % based on extracted Tierpsy features. It also has the option to apply

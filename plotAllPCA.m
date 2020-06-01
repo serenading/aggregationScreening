@@ -9,28 +9,32 @@ addpath('auxiliary/')
 %% Set parameters
 featExtractTimestamp = '20200519_153722'; %'20200519_153722','20191024_122847' or '20181203_141111'
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
-dropPathBlobFeatures = true;
+feats2drop = {'path'};
+strains2drop = {};
 
 %% Load features table and extract features matrix
 featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
-if dropPathBlobFeatures
-    featureTable = dropPathBlobFeats(featureTable);
-end
+% Drop features and strains as specified
+[featureTable, ~] = dropFeats(featureTable,feats2drop);
+[featureTable,~] = dropStrains(featureTable,strains2drop);
 featureMat = table2array(featureTable(:, n_nonFeatVar+1:end));
+n_strains = numel(unique(featureTable.strain_name));
+n_feats = size(featureMat,2);
 
-%% analyze features with PCA
+%% Analyze features with PCA
 
 % pre-process feature matrix for PCA
 [featureMat,~] = preprocessFeatMat(featureMat);
 % do pca
 [pc, score, ~, ~, explained] = pca(featureMat);
 
-%% plot first two PCs and colour by different variables of interest
+%% Plot first two PCs and colour by different variables of interest
 
 % general PCA plot
 generalFig = figure; plot(score(:,1),score(:,2),'.')
 xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
 ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
+title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
 
 % by worm number
 wormNumFig = figure; hold on
@@ -58,7 +62,7 @@ ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
 legend({'others','N2','CB4856','DA609',})
 title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
 
-%% plot first three PCs and colour by different variables of interest
+%% 3D plot of the first three PCs
 % by worm number
 figure; 
 scatter3(score(fortyLogInd,1),score(fortyLogInd,2),score(fortyLogInd,3),'r.')
@@ -68,7 +72,7 @@ xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
 ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
 zlabel(['PC3 (' num2str(round(explained(3))) ')%'])
 legend({'40 worms','5 worms'})
-title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
+title(['PCA plot with ' num2str(n_strains) ' strains and ' num2str(n_feats) ' feature set'])
 
 % by strain
 figure;
@@ -81,4 +85,4 @@ xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
 ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
 zlabel(['PC3 (' num2str(round(explained(3))) ')%'])
 legend({'others','N2','CB4856','DA609',})
-title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
+title(['PCA plot with ' num2str(n_strains) ' strains and ' num2str(n_feats) ' feature set'])

@@ -13,19 +13,25 @@ close all
 
 % set which feature extraction timestamp to use
 featExtractTimestamp = '20200511_162714'; %'20200519_153722' or '20200511_162714' (windows) or '20191024_122847' or '20181203_141111'
-featExtractWindow = '2'; % 'none','0','1','2'
-% get date time window stamp
-if strcmp(featExtractWindow,'none')
-    extractStamp = featExtractTimestamp;
-else
+if strcmp(featExtractTimestamp,'20200511_162714')
+    featExtractWindow = '2'; %'0','1','2'
     extractStamp = [featExtractTimestamp '_window_' featExtractWindow];
+else
+    extractStamp = featExtractTimestamp;
 end
 
 % load features matrix, correspondong filenames, and metadata
 tierpsyFeatureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/source/features_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',');%,'preserveVariableNames',true);
 tierpsyFileTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/source/filenames_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',','CommentStyle','#');%,'preserveVariableNames',true);
 metadataTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/source/metadata_aggregationScreening.csv','Delimiter',',');
-
+% features from '20200519_153722' and ''20200511_162714' are missing the 9 food region features that need appending
+if strcmp(featExtractTimestamp,'20200519_153722')
+    tierpsyFeatureTable2 = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/source/features_summary_select_by_keywords_tierpsy_plate_20200526_194039_window_3.csv','Delimiter',',');%,'preserveVariableNames',true);
+    tierpsyFileTable2 = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/source/filenames_summary_select_by_keywords_tierpsy_plate_20200526_194039_window_3.csv','Delimiter',',','CommentStyle','#');%,'preserveVariableNames',true);
+elseif strcmp(featExtractTimestamp,'20200511_162714')
+    tierpsyFeatureTable2 = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/source/features_summary_select_by_keywords_tierpsy_plate_20200526_194039_window_' featExtractWindow '.csv'],'Delimiter',',');%,'preserveVariableNames',true);
+    tierpsyFileTable2 = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/source/filenames_summary_select_by_keywords_tierpsy_plate_20200526_194039_window_' featExtractWindow '.csv'],'Delimiter',',','CommentStyle','#');%,'preserveVariableNames',true);
+end
 % rename metadata column heads to match Tierpsy output
 metadataTable.Properties.VariableNames{'basename'} = 'filename';
 
@@ -34,6 +40,12 @@ metadataTable.Properties.VariableNames{'basename'} = 'filename';
 % join the Tierpsy tables to match filenames with file_id. Required in case
 % features were not extracted for any files.
 combinedTierpsyTable = outerjoin(tierpsyFileTable,tierpsyFeatureTable,'MergeKeys',true);
+
+% append the 9 food-region related features as necessary
+if strcmp(featExtractTimestamp,'20200519_153722') | strcmp(featExtractTimestamp, '20200511_162714')
+    combinedTierpsyTable2 = outerjoin(tierpsyFileTable2,tierpsyFeatureTable2,'MergeKeys',true);
+    combinedTierpsyTable = outerjoin(combinedTierpsyTable,combinedTierpsyTable2,'MergeKeys',true);
+end
 
 % rename variable name to match that of metadata table if using features files from older Tierpsy versions
 if strcmp(featExtractTimestamp,'20191024_122847') |  strcmp(featExtractTimestamp,'20181203_141111')
