@@ -15,7 +15,7 @@ for strainCtr = 1:numel(strains2drop)
     strain = strains2drop{strainCtr};
     strainDropLogInd = strcmp(featureTable.strain_name,strain);
     dropLogInd(strainDropLogInd) = true;
-    disp([strain ' is dropped from analysis.'])
+    disp([num2str(nnz(strainDropLogInd)) ' recordings of ' strain ' are dropped from analysis.'])
 end
 
 featureTable = featureTable(~dropLogInd,:);

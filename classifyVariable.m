@@ -1,12 +1,18 @@
 clear
 close all
 
-%% Script uses supervised machine learning algorithms to train classifiers to discriminate between 40 vs. 5 worm videos
+%% Script uses supervised machine learning algorithms to train classifiers for a specified variable
 % based on extracted Tierpsy features. It also has the option to apply
 % sequantial feature selection to identify top features to use for
 % classification
 
+% author: serenading. June 2020.
+
 %% Specify analysis parameters
+
+% set which variable to classify for
+classVar = 'strain_name'; % 'wormNum','strain_name'. Must be a variable field of the featureTable. 
+n_nonFeatVar = 17;
 
 % set which feature extraction timestamp to use
 featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3016),'20200511_162714' (feat 3016 three windows) or '20191024_122847' (feat 4548) or '20181203_141111' (feat 4548)
@@ -16,21 +22,25 @@ if strcmp(featExtractTimestamp,'20200511_162714')
 else
     extractStamp = featExtractTimestamp;
 end
-n_nonFeatVar = 17;
 
-% select which features to drop or keep
-feats2drop = {'path','blob'};
+% select which features and features to drop or keep
+strains2keep = {'all'}; % Use all strains if cell left empty. {'all'} or {'divergent'} or {'controls'} or {'strain1', 'strain2'}. Cell array containing strains to keep for analysis. 
+strains2drop = {}; % {'N2','CB4856','DA609','ECA252','LSJ1'}; Cell array containing strains to drop from analysis.
+feats2keep = {'Tierpsy_256'}; % {'Tierpsy_256'} or {'feat1','feat2'}. Cell array containing features to use for analysis. Use all features if left empty.
+feats2drop = {}; % {'path'}; % Cell array containing features to drop from analysis. Partial name of feature allowed. 
 applyKeyFeaturesForClassifierTraining = false; % apply pre-determined key features
 
 % select which tasks to perform
-performSequentialFeatureSelection = true;
-trainClassifier = false;
+performSequentialFeatureSelection = false;
+trainClassifier = true;
 
 if performSequentialFeatureSelection
-    % Note: Currently using quadratic discriminant analysis for sfs.
+    % Note: Currently using linear discriminant analysis for sfs.
     % Otherwise redefine classf function.
     crossVal_k = 5;
-    n_sortedFeatsInput = 500; % 'NaN' or use top '500' features with lowest t-test p-values for sfs to make it run faster.
+    if isempty(feats2keep)
+        n_sortedFeatsInput = 500; % 'NaN' or use top '500' features with lowest t-test p-values for sfs to make it run faster.
+    end
     n_topFeatsOutput = 10;
     plotSFS = false; % generte additional diagnostic plots for SFS
     if applyKeyFeaturesForClassifierTraining
@@ -41,33 +51,37 @@ end
 %% Load and process featureTable
 % load
 featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' extractStamp '.csv'],'Delimiter',',','preserveVariableNames',true);
-% trim table down to retain necessary info
-wormNums = featureTable.wormNum; % get classification labels
-strainNames = featureTable.strain_name; % get classification labels
-featureTable = featureTable(:,n_nonFeatVar+1:end); % get full features matrix
-% shortens the names of features
-featureTable = shortenFeatNamesInFeatTable(featureTable);
-% drop features as specified
-[featureTable, ~] = dropFeats(featureTable,feats2drop);
+
+% check that the specified variable name exists
+if nnz(contains(featureTable.Properties.VariableNames,classVar))~=1
+    error('Invalid classVar name. Variable name must exist inside featureTable.')
+end
+
+% use only 5 worm data to classify strains
+if strcmp(classVar,'strain_name')
+    fivewormLogInd = featureTable.wormNum == 5;
+    featureTable = featureTable(fivewormLogInd,:);
+end
+
+% filter featureTable based on specified strain and features
+[featureTable, classLabels] = filterFeatureTable(featureTable,classVar,n_nonFeatVar,strains2keep,strains2drop,feats2keep,feats2drop);
 
 %% Pre-process features matrix and turn back into table 
-% drop NaN's, z-normalise, etc. from feature table
+% split table into matrix and featNames
 featureMat = table2array(featureTable);
 featNames = featureTable.Properties.VariableNames;
-[featureMat,droppedCols] = preprocessFeatMat(featureMat);
-% remove corresponding feature names for dropped features
-featNamesLogInd = true(size(featNames));
-featNamesLogInd(droppedCols) = false;
-featNames = featNames(featNamesLogInd);
+% preprocess feature matrix: drop zero standard deviation, NaN's, z-normalise, etc. 
+[featureMat,dropLogInd] = preprocessFeatMat(featureMat);
+featNames = featNames(~dropLogInd);
 % put the table back together
 featureTable = array2table(featureMat,'VariableNames',featNames);
 
 %% Holdout partition to separate training (75%) and test (25%) set
-holdoutCVP = cvpartition(wormNums,'holdout',0.25);
+holdoutCVP = cvpartition(classLabels,'holdout',0.25);
 dataTrain = featureMat(holdoutCVP.training,:);
-grpTrain = wormNums(holdoutCVP.training,:);
+grpTrain = classLabels(holdoutCVP.training,:);
 dataTest = featureMat(holdoutCVP.test,:);
-grpTest = wormNums(holdoutCVP.test,:);
+grpTest = classLabels(holdoutCVP.test,:);
 
 %% Sequential feature selection
 % following instructions from https://uk.mathworks.com/help/stats/examples/selecting-features-for-classifying-high-dimensional-data.html
@@ -87,7 +101,7 @@ if performSequentialFeatureSelection
     % sort features
     [~,featureIdxSortbyP] = sort(p,2); 
     
-    % define function for sfs. Quadratic discriminant analysis currently but should probably change for favoured model. 
+    % define function for sfs. Linear discriminant analysis currently but should probably change for favoured model. 
     classf = @(xtrain,ytrain,xtest,ytest) ...
         sum(~strcmp(ytest,classify(xtest,xtrain,ytrain,'linear'))); 
     
@@ -102,7 +116,7 @@ if performSequentialFeatureSelection
     
     if plotSFS
         % evaluate the performance of the selected model with the features
-        testMCELocal = crossval(classf,featureMat(:,featureIdxSortbyP(fsLocal)),wormNums,'partition',...
+        testMCELocal = crossval(classf,featureMat(:,featureIdxSortbyP(fsLocal)),classLabels,'partition',...
             holdoutCVP)/holdoutCVP.TestSize;
         
         % plot of the cross-validation MCE as a function of the number of features for up to 10 features
@@ -129,17 +143,11 @@ end
 
 if applyKeyFeaturesForClassifierTraining
     
-% use key features from sequential feature selection (without path and blob features)
-keyFeats = {'turn_intra_frequency','length_norm_IQR','length_norm_10th',...
-    'rel_to_head_base_radial_vel_head_tip_w_backward_50th','orientation_food_edge_w_forward_IQR',...
-    'turn_intra_duration_50th','motion_mode_paused_fraction','orientation_food_edge_in_edge_IQR',...
-    'orientation_food_edge_in_edge_10th','orientation_food_edge_w_backward_IQR'};
-     
-% % use key features from compareSwFeatDensityEffect.m
-% keyFeats = {'motion_mode_forward_duration_50th','motion_mode_forward_fraction','motion_mode_paused_fraction',...
-%         'food_region_inside_duration_50th','food_region_edge_duration_50th','turn_intra_duration_50th',...
-%         'turn_intra_frequency','rel_to_head_base_radial_vel_head_tip_w_backward_50th',...
-%         'd_speed_w_backward_50th','orientation_food_edge_w_forward_IQR'};
+% % use key features from sequential feature selection (without path and blob features)
+% keyFeats = {'turn_intra_frequency','length_norm_IQR','length_norm_10th',...
+%     'rel_to_head_base_radial_vel_head_tip_w_backward_50th','orientation_food_edge_w_forward_IQR',...
+%     'turn_intra_duration_50th','motion_mode_paused_fraction','orientation_food_edge_in_edge_IQR',...
+%     'orientation_food_edge_in_edge_10th','orientation_food_edge_w_backward_IQR'};
 
 end
 
@@ -160,8 +168,8 @@ end
 
 if trainClassifier
     
-    % Add wormNum to featureTable for classification
-    featureTable.wormNum = wormNums;
+    % Add classLabels to featureTable for classification
+    featureTable.(classVar) = classLabels;
     
     % Extract features matrix for training and test sets
     trainFeatureTable = featureTable(holdoutCVP.training,:);
@@ -178,6 +186,12 @@ if trainClassifier
     
     % Classification accuracy on unseen hold-out test set
     yfit = trainedModel.predictFcn(testFeatureTable);
-    accuracy = nnz(yfit == testFeatureTable.wormNum)/holdoutCVP.TestSize;
-    disp(['Accuracy from trained model is ' num2str(accuracy) ' on unseen test data.'])
+    if strcmp(classVar,'strain_name')
+        accuracy = nnz(strcmp(yfit,testFeatureTable.(classVar)))/holdoutCVP.TestSize;
+    elseif strcmp(classVar,'wormNum')
+        accuracy = nnz(yfit == testFeatureTable.(classVar))/holdoutCVP.TestSize;
+    else
+        error('Please specify how accuracy should be assessed for this classVar.')
+    end
+    disp(['Test accuracy from trained model is ' num2str(accuracy) ' on unseen data.'])
 end
