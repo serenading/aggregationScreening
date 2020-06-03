@@ -104,32 +104,33 @@ subplot(2,3,4); imagesc(phenoDM_s); colorbar; caxis([0 50]); title('Phenotype Di
 subplot(2,3,5); imagesc(genoDM_s*scaleFactor); colorbar; caxis([0 50]); title('Genotype Distance Matrix');
 subplot(2,3,6); imagesc(genoDM_s2*scaleFactor); colorbar; caxis([0 50]); title('Genotype Distance Matrix (no outliers)');
 
-% scatterplot of all distances
-figure; 
-subplot(1,2,1); scatter(genoDM_v*scaleFactor,phenoDM_v,'.'); xlabel('scaled genoDist'); ylabel('phenoDist');
-subplot(1,2,2); scatter(genoDM_v2*scaleFactor,phenoDM_v,'.'); xlabel('scaled genoDist (no outliers)'); ylabel('phenoDist')
-
-%%  Calculate correlation (Options: linear (Pearson) or monotonic (Spearman))
-% Mantel test of matrice dissimilarity
+%%  Mantel test of matrice dissimilarity
+% Mantel test of matrice dissimilarity, linear (Pearson) or monotonic (Spearman)
 [coeff, pval] = bramila_mantel(phenoDM_s,genoDM_s*scaleFactor,5000,'pearson');
 disp(['Mantel test of matrix dissimilarity: p-value for is ' num2str(pval) ' and coefficient is ' num2str(coeff) '.'])
 [coeff, pval] = bramila_mantel(phenoDM_s,genoDM_s2*scaleFactor,5000,'pearson');
 disp(['Mantel test of matrix dissimilarity: p-value for is ' num2str(pval) ' (after removing outliers from genoDM)  and coefficient is ' num2str(coeff) '.'])
 
-% Pearson and Spearman correlations of vectors
-[coeff,pval] = corr(phenoDM_v', genoDM_v');
-disp(['Pearson correlation of distance vectors: coefficient is ' num2str(coeff) ' and p-value is ' num2str(pval) '.']);
-[coeff,pval] = corr(phenoDM_v', genoDM_v','Type','Spearman');
-disp(['Spearman correlation of distance vectors: coefficient is ' num2str(coeff) ' and p-value is ' num2str(pval) '.']);
-[coeff,pval] = corr(phenoDM_v', genoDM_v2');
-disp(['Pearson correlation of distance vectors (after removing outliers from genoDist): coefficient is ' num2str(coeff) ' and p-value is ' num2str(pval) '.']);
-[coeff,pval] = corr(phenoDM_v', genoDM_v2','Type','Spearman');
-disp(['Spearman correlation of distance vectors (after removing outliers from genoDist): coefficient is ' num2str(coeff) ' and p-value is ' num2str(pval) '.']);
+%% Pearson's correlation calculation
+input = [phenoDM_v' genoDM_v'*scaleFactor];
+[coeff,pval] = corr(input);
+disp(['Pearson correlation of distance vectors: coefficient is ' num2str(coeff(1,2)) ' and p-value is ' num2str(pval(1,2)) '.']);
+[coeff,pval] = corr(input,'Type','Spearman');
+disp(['Spearman correlation of distance vectors: coefficient is ' num2str(coeff(1,2)) ' and p-value is ' num2str(pval(1,2)) '.']);
+
+input = [phenoDM_v' genoDM_v'*scaleFactor];
+[coeff,pval] = corr(phenoDM_v,genoDM_v2*scaleFactor);
+disp(['Pearson correlation of distance vectors (after removing outliers from genoDist): coefficient is ' num2str(coeff(1,2)) ' and p-value is ' num2str(pval(1,2)) '.']);
 
 %% Agglomerative hierarchical clustering
 phenoLink = linkage(phenoDM_v,'average');
 genoLink = linkage(genoDM_v,'average');
 genoLink2 = linkage(genoDM_v2,'average');
+
+% scatterplot of distances and branch lengths
+figure; 
+subplot(1,2,1); scatter(genoDM_v*scaleFactor,phenoDM_v,'.'); xlabel('scaled genoDist'); ylabel('phenoDist');
+subplot(1,2,2); scatter(genoDM_v2*scaleFactor,phenoDM_v,'.'); xlabel('scaled genoDist (no outliers)'); ylabel('phenoDist')
 
 % dendrograms from hierarchical clustering (need to understand what the leaf node numbers mean)
 figure; 

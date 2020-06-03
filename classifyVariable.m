@@ -26,23 +26,38 @@ end
 % select which features and features to drop or keep
 strains2keep = {'all'}; % Use all strains if cell left empty. {'all'} or {'divergent'} or {'controls'} or {'strain1', 'strain2'}. Cell array containing strains to keep for analysis. 
 strains2drop = {}; % {'N2','CB4856','DA609','ECA252','LSJ1'}; Cell array containing strains to drop from analysis.
-feats2keep = {'Tierpsy_256'}; % {'Tierpsy_256'} or {'feat1','feat2'}. Cell array containing features to use for analysis. Use all features if left empty.
+feats2keep = {}; % Use all features if left empty. {'Tierpsy_256'} or {'feat1','feat2'}. Cell array containing features to use for analysis. 
 feats2drop = {}; % {'path'}; % Cell array containing features to drop from analysis. Partial name of feature allowed. 
 applyKeyFeaturesForClassifierTraining = false; % apply pre-determined key features
 
 % select which tasks to perform
-performSequentialFeatureSelection = false;
+performSequentialFeatureSelection = true;
 trainClassifier = true;
 
+% randomly sub-select a number of strains from the full panel
+if isempty(strains2keep) | strcmp(strains2keep,'all')
+    useRandomStrains = false;
+    n_RandomStrains = 13;
+end
+
+% further parameters
 if performSequentialFeatureSelection
     % Note: Currently using linear discriminant analysis for sfs.
     % Otherwise redefine classf function.
     crossVal_k = 5;
     if isempty(feats2keep)
         n_sortedFeatsInput = 500; % 'NaN' or use top '500' features with lowest t-test p-values for sfs to make it run faster.
+    else
+        n_sortedFeatsInput = NaN;
     end
-    n_topFeatsOutput = 10;
-    plotSFS = false; % generte additional diagnostic plots for SFS
+    if strcmp(classVar,'wormNum')
+        n_topFeatsOutput = 10;
+    elseif strcmp(classVar,'strain_name')
+        n_topFeatsOutput = 30;
+    else
+        n_topFeatsOutput = 500;
+    end
+    plotSFS = true; % generte additional diagnostic plots for SFS
     if applyKeyFeaturesForClassifierTraining
         error('applyKeyFeaturesForClassifierTraining must be set to false for sequentialFeatureSelection results to be used for classification.')
     end
@@ -61,6 +76,13 @@ end
 if strcmp(classVar,'strain_name')
     fivewormLogInd = featureTable.wormNum == 5;
     featureTable = featureTable(fivewormLogInd,:);
+end
+
+% if specified, use a randomly sub-selected panel of strains from the full list
+if (isempty(strains2keep) | strcmp(strains2keep,'all')) & useRandomStrains
+    load('/Users/sding/Documents/MATLAB/AggScreening/strainsList/all.mat');
+    randInd = randperm(numel(strains),n_RandomStrains);
+    strains2keep = strains(randInd);
 end
 
 % filter featureTable based on specified strain and features
@@ -93,7 +115,7 @@ if performSequentialFeatureSelection
     dataTrainG2 = dataTrain(grp2idx(grpTrain)==2,:);
     [h,p,ci,stat] = ttest2(dataTrainG1,dataTrainG2,'Vartype','unequal');
     if plotSFS
-        ecdf(p);
+        figure; ecdf(p);
         xlabel('P value');
         ylabel('CDF value')
     end
@@ -122,7 +144,7 @@ if performSequentialFeatureSelection
         % plot of the cross-validation MCE as a function of the number of features for up to 10 features
         [fsCVfor10,historyCV] = sequentialfs(classf,dataTrain(:,featureIdxSortbyP),grpTrain,...
             'cv',fivefoldCVP,'nfeatures',n_topFeatsOutput);
-        plot(historyCV.Crit,'o');
+        figure; plot(historyCV.Crit,'o');
         xlabel('Number of Features');
         ylabel('CV MCE');
         title('Forward Sequential Feature Selection with cross-validation');
@@ -132,7 +154,7 @@ if performSequentialFeatureSelection
         % as a function of the number of features:
         [fsResubfor10,historyResub] = sequentialfs(classf,dataTrain(:,featureIdxSortbyP),...
             grpTrain,'cv','resubstitution','nfeatures',n_topFeatsOutput);
-        plot(1:n_topFeatsOutput, historyCV.Crit,'bo',1:n_topFeatsOutput, historyResub.Crit,'r^');
+        figure; plot(1:n_topFeatsOutput, historyCV.Crit,'bo',1:n_topFeatsOutput, historyResub.Crit,'r^');
         xlabel('Number of Features');
         ylabel('MCE');
         legend({'10-fold CV MCE' 'Resubstitution MCE'},'location','NE'); %%%% 10 fold? 5 fold? ?? don't understand this plot
@@ -149,6 +171,24 @@ if applyKeyFeaturesForClassifierTraining
 %     'turn_intra_duration_50th','motion_mode_paused_fraction','orientation_food_edge_in_edge_IQR',...
 %     'orientation_food_edge_in_edge_10th','orientation_food_edge_w_backward_IQR'};
 
+% % SFS key features for discriminating between divergent strains
+% keyFeats = {'blob_hu2_w_forward_90th','blob_hu5_w_forward_50th','curvature_head_w_backward_abs_90th',...
+%     'd_curvature_mean_tail_norm_abs_IQR','ang_vel_w_forward_abs_90th','d_blob_hu3_w_forward_90th'...,
+%     'd_blob_hu5_IQR','curvature_mean_tail_norm_abs_50th','width_tail_base_norm_50th','d_width_head_base_w_forward_10th'};
+% 
+% % SFS key features for discriminating between divergent strains except N2
+% keyFeats = {'blob_hu2_w_forward_50th','curvature_std_tail_norm_abs_10th','blob_hu5_50th',...
+%     'd_blob_solidity_w_forward_IQR','rel_to_tail_base_radial_vel_tail_tip_norm_10th','curvature_mean_head_w_backward_abs_90th',...
+%     'curvature_mean_hips_norm_abs_90th','curvature_head_w_backward_abs_10th','curvature_std_hips_abs_10th',...
+%     'd_rel_to_neck_radial_vel_head_tip_w_forward_50th'};
+
+% SFS 25 key features for discriminating between divergent strains
+keyFeats = {'blob_hu5_w_forward_10th','blob_hu2_w_forward_IQR','blob_hu5_10th','blob_hu2_w_forward_90th',...
+    'blob_hu5_w_forward_50th','blob_hu2_90th','blob_hu2_w_forward_50th','blob_hu2_IQR',...
+    'blob_hu2_50th','blob_hu4_w_forward_10th','blob_hu4_10th','blob_hu4_w_backward_10th','blob_hu2_w_forward_10th',...
+    'blob_hu3_w_forward_50th','blob_hu6_w_backward_10th','curvature_std_tail_norm_abs_10th','curvature_tail_norm_abs_90th',...
+    'blob_hu3_w_forward_90th','curvature_std_tail_w_backward_abs_50th','blob_hu3_w_forward_10th','blob_hu6_w_forward_90th',...
+    'blob_hu6_90th','d_blob_hu6_w_backward_90th','blob_hu4_IQR','d_blob_hu6_w_forward_10th'};
 end
 
 %% Slice out key features from the full featureTable
@@ -184,6 +224,9 @@ if trainClassifier
         pause
     end
     
+    % For classifying strains, linear discriminant model (and sometimes Ensemble subspace discrimnant model) works the best.
+    % For classifying density, coarse tree model works the best but many models perform very well. 
+    
     % Classification accuracy on unseen hold-out test set
     yfit = trainedModel.predictFcn(testFeatureTable);
     if strcmp(classVar,'strain_name')
@@ -194,4 +237,5 @@ if trainClassifier
         error('Please specify how accuracy should be assessed for this classVar.')
     end
     disp(['Test accuracy from trained model is ' num2str(accuracy) ' on unseen data.'])
+
 end
