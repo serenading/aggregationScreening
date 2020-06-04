@@ -8,9 +8,10 @@ addpath('auxiliary/')
 
 %% Set parameters
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
+classVar = 'strain_name'; 
 
 % set which feature extraction timestamp to use
-featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3016),'20200511_162714' (feat 3016 three windows) or '20191024_122847' (feat 4548) or '20181203_141111' (feat 4548)
+featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3016),'20200511_162714' (feat 3016 three windows) or '20191024_122847' (feat 4548)
 if strcmp(featExtractTimestamp,'20200511_162714')
     featExtractWindow = '1'; %'0','1','2'
     extractStamp = [featExtractTimestamp '_window_' featExtractWindow];

@@ -12,7 +12,7 @@ close all
 %% Import features data and combine with metadata
 
 % set which feature extraction timestamp to use
-featExtractTimestamp = '20200511_162714'; %'20200519_153722' or '20200511_162714' (windows) or '20191024_122847' or '20181203_141111'
+featExtractTimestamp = '20200511_162714'; %'20200519_153722' (feat 3016) or '20200511_162714' (feat 3016 windows) or '20191024_122847' (feat 4548)
 if strcmp(featExtractTimestamp,'20200511_162714')
     featExtractWindow = '2'; %'0','1','2'
     extractStamp = [featExtractTimestamp '_window_' featExtractWindow];

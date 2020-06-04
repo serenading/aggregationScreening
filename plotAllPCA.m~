@@ -7,14 +7,14 @@ close all
 addpath('auxiliary/')
 
 %% Set parameters
-featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3016),'20191024_122847' (feat 4548)
+featExtractTimestamp = '20200519_153722'; %'20200519_153722','20191024_122847' or '20181203_141111'
 
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
 classVar = {'strain_name','wormNum'}; 
 
-strains2keep = {'divergent'}; % Use all strains if cell left empty. {'all'} or {'divergent'} or {'controls'} or {'strain1', 'strain2'}. Cell array containing strains to keep for analysis. 
-strains2drop = {'N2'}; % {'DA609','ECA252','LSJ1'} not in genoDM; Cell array containing strains to drop from analysis.
-feats2keep = {'Tierpsy_256'}; % Use all features if left empty. {'Tierpsy_256'} or {'feat1','feat2'}. Cell array containing features to use for analysis. 
+strains2keep = {}; % Use all strains if cell left empty. {'all'} or {'divergent'} or {'controls'} or {'strain1', 'strain2'}. Cell array containing strains to keep for analysis. 
+strains2drop = {}; % {'DA609','ECA252','LSJ1'} not in genoDM; Cell array containing strains to drop from analysis.
+feats2keep = {}; % Use all features if left empty. {'Tierpsy_256'} or {'feat1','feat2'}. Cell array containing features to use for analysis. 
 feats2drop = {}; % {'path'};
 
 %% Load and process features table and extract features matrix
@@ -39,6 +39,12 @@ n_feats = size(featureMat,2);
 
 %% Plot first two PCs and colour by different variables of interest
 
+% general PCA plot
+generalFig = figure; plot(score(:,1),score(:,2),'.')
+xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
+ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
+title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
+
 % by worm number
 wormNumFig = figure; hold on
 fortyLogInd = featureTable.wormNum==40;
@@ -48,7 +54,7 @@ plot(score(fiveLogInd,1),score(fiveLogInd,2),'b.')
 xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
 ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
 legend({'40 worms','5 worms'})
-title(['PCA plot with ' num2str(n_strains) ' and ' num2str(n_feats) ' feature set'])
+title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
 
 % by strain
 strainFig = figure; hold on
@@ -63,7 +69,7 @@ plot(score(DA609LogInd,1),score(DA609LogInd,2),'b.')
 xlabel(['PC1 (' num2str(round(explained(1))) ')%'])
 ylabel(['PC2 (' num2str(round(explained(2))) ')%'])
 legend({'others','N2','CB4856','DA609',})
-title(['PCA plot with ' num2str(n_strains) ' strains and ' num2str(n_feats) ' feature set'])
+title(['PCA plot with 198 strains and ' num2str(size(featureMat,2)) ' feature set'])
 
 %% 3D plot of the first three PCs
 % by worm number
@@ -92,20 +98,12 @@ title(['PCA plot with ' num2str(n_strains) ' strains and ' num2str(n_feats) ' fe
 
 %% Plot variance explained as a function of number of PCs
 figure; hold on
-% both densities PCA
-plot(cumsum(explained),'-'); 
+plot(cumsum(explained),'-'); xlim([0 500]); xlabel('Number of PCs'); ylabel('Variance explained (%)'); hold on
 % 5 worm only PCA
 fiveWormLogInd = featureTable.wormNum==5;
 fiveWormFeatureMat = featureMat(fiveWormLogInd,:);
 [pc, score, ~, ~, explained] = pca(fiveWormFeatureMat);
-plot(cumsum(explained),'-');
-% 40 worm only PCA
+plot(cumsum(explained),'-'); xlim([0 500]); xlabel('Number of PCs'); ylabel('Variance explained (%)'); hold on
 fortyWormLogInd = featureTable.wormNum==40;
 fortyWormFeatureMat = featureMat(fortyWormLogInd,:);
 [pc, score, ~, ~, explained] = pca(fortyWormFeatureMat);
-plot(cumsum(explained),'-'); 
-% format plot
-xlim([0 500]); ylim([0 100]); xlabel('Number of PCs'); ylabel('Variance explained (%)'); legend({'All','5 worms','40 worms'})
-if strcmp(feats2keep,'Tierpsy_256')
-    xlim([0 80])
-end

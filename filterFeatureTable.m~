@@ -11,7 +11,9 @@
 
 %% Outputs: 
 % featureTable: file-by-feature featureTable with non-feature metadata variables removed.
-% classLabels: file x 1 class labels to feed into the classification task. If multiple multiple variables are specied for classVar then classLabels is a struct where each field contains the labels for that variable.
+% classLabels: file x 1 class labels to feed into the classification task.
+% If multiple multiple variables are specied for classVar then classLabels
+% is a struct where each field contains the label for th
 
 function [featureTable, classLabels] = filterFeatureTable(featureTable,classVar,n_nonFeatVar,strains2keep,strains2drop,feats2keep,feats2drop)
 

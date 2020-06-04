@@ -14,7 +14,7 @@ strains = {'N2','DA609','CB4856'};
 wormNums = 5; % 5, or, 40, or [5, 40]
 
 % which features table to load
-featExtractTimestamp = '20200519_153722'; %'20200519_153722' or '20191024_122847' or '20181203_141111'
+featExtractTimestamp = '20200519_153722'; %'20200519_153722' or '20191024_122847'
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
 
 % which features to use for PCA

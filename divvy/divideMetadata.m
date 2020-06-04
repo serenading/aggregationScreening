@@ -6,7 +6,7 @@ clear
 close all
 
 %% Import metadata
-metadataTable = readtable('/Users/sding/Desktop/AggregationScreening/metadata_aggregationScreening.csv','Delimiter',',');
+metadataTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/source/metadata_aggregationScreening.csv','Delimiter',',');
 
 %% Get five worm files
 fiveWormLogInd = metadataTable.wormNum==5 & metadataTable.is_bad ==0;
