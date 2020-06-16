@@ -9,11 +9,11 @@
 function [] = appendFeatToFortyWormFeatSumary(newFeatTable)
 
 %% check that the new features table has the correct format
-assert(strcmp(class(newFeatTable),'table'),'New features table must have be a "tale"')
+assert(isa(newFeatTable,'table'),'New features table must have be in table format')
 assert(size(newFeatTable,2)==2, 'New features table must be nx2 in dimension')
 
 %% load the most recent features table to append to
-dirname = '/Users/sding/Dropbox/aggScreening/results/fortyWorm/';
+dirname = '/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/';
 d = dir([dirname 'fortyWormFeaturesTable*.csv']);
 [~,idx] = max([d.datenum]); 
 fortyWormFeatureTableName = d(idx).name;
@@ -22,17 +22,19 @@ fortyWormFeatureTableFeatNames = fortyWormFeatureTable.Properties.VariableNames;
 assert(size(fortyWormFeatureTable,1)==1222,'There should be 1222 recording files for the forty-worm dataset')
 assert(numel(unique(fortyWormFeatureTable.Properties.VariableNames))==size(fortyWormFeatureTable,2),...
     'Not all existing features in the fortyWormFeatureTable are unique')
-n_oldFeatures = size(fortyWormFeatureTable,2)-17; % the first 17 columns are not features
+%n_oldFeatures = size(fortyWormFeatureTable,2)-17; % the first 17 columns are not features
 
 %% check if the new feature already exists and update features table accordingly
 newFeatName = newFeatTable.Properties.VariableNames(2);
 % the new feature does not already exist, append
-if nnz(strcmp(newFeatName,fortyWormFeatureTableFeatNames))==0 
+if 
+    nnz(strcmp(newFeatName,fortyWormFeatureTableFeatNames))==0 
     fortyWormFeatureTable = outerjoin(fortyWormFeatureTable,newFeatTable,'MergeKeys',true);
     n_newFeatures = size(fortyWormFeatureTable,2)-17;
-    assert(n_newFeatures == n_oldFeatures +1, 'There should be 1 more feature than the original fortyWormFeaturesTable but this is not the case)
+    % assert(n_newFeatures == n_oldFeatures +1, 'There should be 1 more feature than the original fortyWormFeaturesTable but this is not the case)
     disp([newFeatName ' is appended to fortyWormFeatureTable as a new feature.'])
-else nnz(strcmp(newFeatName,fortyWormFeatureTableFeatNames))==1
+else
+    nnz(strcmp(newFeatName,fortyWormFeatureTableFeatNames))==1
     %%%%%% not sure what happens here if existing variable is found,
     %%%%%% whether "MergeKeys" automatically merges and keeps both
     %%%%%% versions of the values??? need to check
@@ -47,4 +49,4 @@ end
 
 %% save new table
 timestamp=datetime('today','Format','yyyyMMdd');
-writetable(fortyWormFeatureTable,['/Users/sding/Dropbox/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' char(timestamp) '.csv']);
+writetable(fortyWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' char(timestamp) '.csv']);

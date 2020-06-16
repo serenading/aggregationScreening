@@ -1,17 +1,19 @@
-function [tempBlobLogInd] = findTempBlobs(trajData,blobFeats,frameRate)
+function tempBlobLogInd = findTempBlobs(trajData,blobFeats,frameRate)
 
 %% function generates tempBlobLogInd the same size as trajData files to detect blobs that do not persist for more than 1 second.
 
 % initialise logical index
-tempBlobLogInd = true(size(trajData.worm_index_joined));
+tempBlobLogInd = false(size(trajData.worm_index_joined));
+% unique blobs 
+uniqueBlobs = unique(trajData.worm_index_joined);
 % go through each blob
-for blobCtr = 1:numel(unique(trajData.worm_index_joined))
-    blobLogInd = trajData.worm_index_joined == blobCtr;
-    % check that the blob persists for at least second
-    if nnz(blobLogInd)>=frameRate
+for blobCtr = 1:numel(uniqueBlobs)
+    thisBlobLogInd = trajData.worm_index_joined == uniqueBlobs(blobCtr);
+    % check that the blob persists for at least one second
+    if nnz(thisBlobLogInd)<=frameRate
         % find the indices of this blob
-        blobInd = find(blobLogInd);
+        thisBlobInd = find(thisBlobLogInd);
         % turn those indices false
-        tempBlobLogInd(blobInd(1):blobInd(end))=false;
+        tempBlobLogInd(thisBlobInd)=true;
     end
 end

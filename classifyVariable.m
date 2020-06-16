@@ -35,12 +35,12 @@ performSequentialFeatureSelection = true;
 trainClassifier = true;
 
 % randomly sub-select a number of strains from the full panel
-if isempty(strains2keep) | strcmp(strains2keep,'all')
+if isempty(strains2keep) || strcmp(strains2keep,'all')
     useRandomStrains = false;
     n_RandomStrains = 13;
 end
 
-% further parameters
+% further optional parameters
 if performSequentialFeatureSelection
     % Note: Currently using linear discriminant analysis for sfs.
     % Otherwise redefine classf function.
@@ -79,7 +79,7 @@ if strcmp(classVar,'strain_name')
 end
 
 % if specified, use a randomly sub-selected panel of strains from the full list
-if (isempty(strains2keep) | strcmp(strains2keep,'all')) & useRandomStrains
+if (isempty(strains2keep) || strcmp(strains2keep,'all')) && useRandomStrains
     load('/Users/sding/Documents/MATLAB/AggScreening/strainsList/all.mat');
     randInd = randperm(numel(strains),n_RandomStrains);
     strains2keep = strains(randInd);
@@ -192,7 +192,7 @@ keyFeats = {'blob_hu5_w_forward_10th','blob_hu2_w_forward_IQR','blob_hu5_10th','
 end
 
 %% Slice out key features from the full featureTable
-if performSequentialFeatureSelection | applyKeyFeaturesForClassifierTraining
+if performSequentialFeatureSelection || applyKeyFeaturesForClassifierTraining
     
     featCols = [];
     for keyFeatCtr = 1:numel(keyFeats)

@@ -1,6 +1,9 @@
-function [sw_perdurance,mw_perdurance,cluster_perdurance,sw_frameDist,mw_frameDist,cluster_frameDist] = calculatePerdurance(blobFeats,trajData,singleWormLogInd,multiWormLogInd,clusterLogInd,sw_frameDist,mw_frameDist,cluster_frameDist)
+function [sw_perdurance,mw_perdurance,cluster_perdurance,sw_frameDist,mw_frameDist,cluster_frameDist] = calculatePerdurance(blobFeats,trajData,singleWormLogInd,multiWormLogInd,clusterLogInd)
 
 %% function calculates cluster perdurance (in number of frames)
+sw_frameDist = [];
+mw_frameDist = [];
+cluster_frameDist = [];
 
 sw_feature = blobFeats.perdurance(singleWormLogInd);
 mw_feature = blobFeats.perdurance(multiWormLogInd);

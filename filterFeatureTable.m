@@ -18,7 +18,7 @@ function [featureTable, classLabels] = filterFeatureTable(featureTable,classVar,
 %% process rows (observations) first
 
 % retain strains as specified
-if isempty(strains2keep) | strcmp(strains2keep,'all')
+if isempty(strains2keep) || strcmp(strains2keep,'all')
     load('strainsList/all.mat','strains');
     strains2keep = strains;
 elseif strcmp(strains2keep,'divergent')
@@ -33,7 +33,7 @@ featureTable = featureTable(strainLogInd,:);
 % drop strains as specified
 [featureTable,~] = dropStrains(featureTable,strains2drop);
 % get strain classification labels
-if numel(classVar)==1
+if ischar(classVar)
     classLabels = featureTable.(classVar); 
 else
     for varCtr = 1:numel(classVar)

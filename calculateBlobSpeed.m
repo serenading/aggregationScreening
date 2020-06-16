@@ -1,4 +1,4 @@
-function [blobSpeeds] = calculateBlobSpeed(trajData, blobFeats,frameRate,pixelToMicron,speedSmoothFactorInSec)
+function blobSpeeds = calculateBlobSpeed(trajData, blobFeats,frameRate,pixelToMicron,speedSmoothFactorInSec)
 
 %% function calculates blobSpeed (smoothed over 1 second unless otherwise specified) 
 if nargin<5
@@ -9,22 +9,24 @@ end
 blobSpeeds = NaN(size(blobFeats.coord_x));
 
 % go through each blob
-for blobCtr = 1:numel(unique(trajData.worm_index_joined))
-    blobLogInd = trajData.worm_index_joined == blobCtr;
+uniqueBlobs = unique(trajData.worm_index_joined);
+for blobCtr = 1:numel(uniqueBlobs)
+    thisBlobLogInd = trajData.worm_index_joined == uniqueBlobs(blobCtr);
     % check that the blob exists for the smooth duration
-    if nnz(blobLogInd)>speedSmoothFactorInSec*frameRate
+    if nnz(thisBlobLogInd)>speedSmoothFactorInSec*frameRate
         % calculate blob speed
-        blobInd = find(blobLogInd);
-        blob_x = blobFeats.coord_x(blobInd);
-        blob_y = blobFeats.coord_y(blobInd);
+        blob_x = blobFeats.coord_x(thisBlobLogInd);
+        blob_y = blobFeats.coord_y(thisBlobLogInd);
         blobSpeed = NaN(size(blob_x));
-        for stepCtr = 1:(length(blob_x)-speedSmoothFactorInSec*frameRate)
+        for stepCtr = 1:(numel(blob_x)-speedSmoothFactorInSec*frameRate)
             dx = blob_x(stepCtr+speedSmoothFactorInSec*frameRate)-blob_x(stepCtr);
             dy = blob_y(stepCtr+speedSmoothFactorInSec*frameRate)-blob_y(stepCtr);
             blobSpeed(stepCtr) = sqrt(dx.^2+dy.^2);
         end
+        % check that indices for this blob is consecutive
+        assert(sum(diff(find(thisBlobLogInd))) == numel(diff(find(thisBlobLogInd))),'Indices for this blob are not consecutive.')
         % add blob speed to blobSpeeds matrix
-        blobSpeeds(blobInd(1):blobInd(end))=blobSpeed;
+        blobSpeeds(thisBlobLogInd)=blobSpeed;
     end
 end
 
