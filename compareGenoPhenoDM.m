@@ -1,5 +1,6 @@
 %% Script compares distance matrices  based on genotype (SNPs) and phenotype (Tierpsy features) across strains. 
 % Useful option: makeMappingFile: outputs a .tsv file in the correct format for cegwas2-nf mapping
+
 % author: @serenading June 2020
 
 clear
@@ -67,7 +68,7 @@ for strainCtr = 1:n_strains
     strainLogInd = strcmp(featureTable.(classVar),strain);
     meanFeatureMat(strainCtr,:) = mean(featureMat(strainLogInd,:),1);
 end
-% replace featureTable and feature matrix with the averaged one
+% replace featureTable and feature matrix with the averaged onewritetable(mappingTable,filename,'Delimiter','\t');
 clear featureTable
 featureTable = array2table(meanFeatureMat,'VariableNames',featNames);
 featureTable.(classVar) = uniqueStrains;

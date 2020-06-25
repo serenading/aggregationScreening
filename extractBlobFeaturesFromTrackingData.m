@@ -1,9 +1,10 @@
-%clear
-%close all
+clear
+close all
 
 addpath('auxiliary/')
 
 %% Script extracts Tierpsy blob features from 40 worm tracking data to generate a feature table for joining onto the master feature table
+
 % author: serenading. June 2020.
 
 %% Specify analysis parameters
@@ -12,7 +13,7 @@ addpath('auxiliary/')
 HD1 = true; % true or false
 
 % which base features to expand and add to features table?
-featureBaseNames = {'blobSpeed'};%,'blobArea','blobCompactness','blobPerimeter','blobSolidity','blobQuirkiness','blobHu0','blobHu1','blobHu2','blobHu3','blobLength','blobWidth','blobOrientation'};
+featureBaseNames = {'blobSpeed','d_blobSpeed', 'd_blobSpeed_abs','blobArea','blobCompactness','blobPerimeter','blobSolidity','blobQuirkiness','blobHu0','blobHu1','blobHu2','blobHu3','blobHu4','blobHu5','blobHu6','blobLength','blobWidth','blobOrientation'};
 n_expandedFeats = 100; % number of expanded features per base feature
 
 % set which feature extraction timestamp to use (doesn't matter as we are calculating our own feats)
@@ -42,11 +43,14 @@ end
 featureTable.onHD1 = onHD1;
 
 %% Go through each file that is present on this HD to extract features
-if HD1
-    fileInd = find(featureTable.onHD1);
-else
-    fileInd = find(~featureTable.onHD1);
-end
+% if HD1
+%     fileInd = find(featureTable.onHD1);
+% else
+%     fileInd = find(~featureTable.onHD1);
+% end
+fileInd = 1:numel(featureTable.onHD1);
+
+% initialise
 filenames = repmat({''},numel(fileInd),1);
 featVals = NaN(numel(fileInd),numel(featureBaseNames)*n_expandedFeats);
 featNames = {};
@@ -57,6 +61,9 @@ for fileCtr = 1:numel(fileInd)
     % get featuresN filename from Results folder
     filename = [strrep(strrep(char(featureTable.dirname(fileInd(fileCtr))),'/Volumes/behavgenom_archive$/Serena/','/Volumes/Ashur DT2/'),'MaskedVideos','Results'),...
         '/', strrep(char(featureTable.filename(fileInd(fileCtr))),'.hdf5','_featuresN.hdf5')];
+    if ~featureTable.onHD1(fileInd(fileCtr))
+        filename = strrep(filename,'DT2/','DT2 1/');
+    end
     % load tracking data from featuresN.hdf5
     trajData = h5read(filename,'/trajectories_data');
     blobFeats = h5read(filename,'/blob_features');
@@ -75,9 +82,8 @@ for fileCtr = 1:numel(fileInd)
     [phase1LogInd, phase2LogInd, phase3LogInd, notPhase1LogInd] = restrictPhase(trajData,frameRate);
     
     %% Calculate base features to expand and add to the main featuresTable
-    blobSpeed = calculateBlobSpeed(trajData, blobFeats,frameRate,pixelToMicron); % units in microns per second
-    features2add = {blobSpeed};%,blobFeats.area,blobFeats.compactness,blobFeats.perimeter,blobFeats.solidity,blobFeats.quirkiness,...
-        %blobFeats.hu0,blobFeats.hu1,blobFeats.hu2,blobFeats.hu3,blobFeats.box_length,blobFeats.box_width,blobFeats.box_orientation}; % cell containing calculated base features
+    [blobSpeed, d_blobSpeed, d_blobSpeed_abs] = calculateBlobSpeed(trajData, blobFeats,frameRate); % units in microns per second
+    features2add = {blobSpeed,d_blobSpeed,d_blobSpeed_abs,blobFeats.area,blobFeats.compactness,blobFeats.perimeter,blobFeats.solidity,blobFeats.quirkiness,blobFeats.hu0,blobFeats.hu1,blobFeats.hu2,blobFeats.hu3,blobFeats.hu4,blobFeats.hu5,blobFeats.hu6,blobFeats.box_length,blobFeats.box_width,blobFeats.box_orientation};
     assert(numel(features2add) == numel(featureBaseNames),'The number of calculated base features does not match the number of feature base names.');
     
     %% Expand features
@@ -96,7 +102,7 @@ for fileCtr = 1:numel(fileInd)
     
     %% Get filename to join with the main features table later
     filenames{fileCtr} = char(featureTable.filename(fileInd(fileCtr))); % create this to join with the master FeaturesTable later
-end
+ end
 
 %% Turn extracted features into a table
 blobFeatureTable = array2table(featVals);
@@ -106,6 +112,7 @@ blobFeatureTable.filename = filenames;
 %% Join new features table with the original
 featureTable = outerjoin(featureTable, blobFeatureTable,'MergeKeys',true);
 
-%% Save
-save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '_withBlobFeats.mat'],'featureTable');
-writetable(featureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '_withBlobFeats.csv'])
+%% Save new featureTable with today's timestamp to append to existing featureTable later
+timestamp=datetime('today','Format','yyyyMMdd');
+writetable(featureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '_new_' char(timestamp) '.csv'])
+save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '_new_' char(timestamp) '.mat'],'blobFeatureTable')

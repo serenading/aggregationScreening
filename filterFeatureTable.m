@@ -18,7 +18,7 @@ function [featureTable, classLabels] = filterFeatureTable(featureTable,classVar,
 %% process rows (observations) first
 
 % retain strains as specified
-if isempty(strains2keep) || strcmp(strains2keep,'all')
+if isempty(strains2keep) | strcmp(strains2keep,'all')
     load('strainsList/all.mat','strains');
     strains2keep = strains;
 elseif strcmp(strains2keep,'divergent')

@@ -8,17 +8,23 @@ addpath('auxiliary/')
 
 %% Set parameters
 featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3016),'20191024_122847' (feat 4548)
-
 n_nonFeatVar = 17; % the first n columns of the feature table that do not contain features. =17
 classVar = {'strain_name','wormNum'}; 
+wormNum = 40;
 
 strains2keep = {}; % Use all strains if cell left empty. {'all'} or {'divergent'} or {'controls'} or {'strain1', 'strain2'}. Cell array containing strains to keep for analysis. 
 strains2drop = {}; % {'DA609','ECA252','LSJ1'} not in genoDM; Cell array containing strains to drop from analysis.
 feats2keep = {}; % Use all features if left empty. {'Tierpsy_256'} or {'feat1','feat2'}. Cell array containing features to use for analysis. 
-feats2drop = {}; % {'path'};
+feats2drop = {'_sw'}; % {'path'};
 
 %% Load and process features table and extract features matrix
-featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
+if wormNum ==40
+    featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_20200519_153722_new_20200620.csv'],'Delimiter',',','PreserveVariableNames',true);
+elseif wormNum == 5
+    featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','PreserveVariableNames',true)
+else
+    featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' featExtractTimestamp '.csv'],'Delimiter',',','preserveVariableNames',true);
+end
 % filter featureTable based on specified strain and features
 [featureTable, classLabels] = filterFeatureTable(featureTable,classVar,n_nonFeatVar,strains2keep,strains2drop,feats2keep,feats2drop);
 % add retained labels to featureTable

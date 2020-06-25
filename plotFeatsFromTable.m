@@ -4,11 +4,16 @@ close all
 addpath('auxiliary/')
 
 %% Script reads in featureTable and optionally plots 
-% a boxplot for all strains (40 and 5 worms) and/or 
+% boxplot for all strains (40 and 5 worms) and/or 
 % expanded feature values across worm categories and movie phases (40 worm only).
 
+% author: @serenading. June 2020
+
+%% Set analysis parameters
 % choose which feature to plot. Cell containing strings that match feature variable names
-features2plot = {'blobCompactness_50th','blobSpeed_50th','blobSpeed_90th','blobArea_50th','blobArea_90th','blobQuirkiness_50th','blobQuirkiness_90th','blobSolidity_50th','blobSolidity_90th','blobHu0_50th','blobHu1_50th','blobHu2_50th','blobHu3_50th'};
+features2plot = {'blobCompactness_50th','blobCompactness_90th','blobSpeed_50th','blobSpeed_90th','blobArea_50th','blobArea_90th','blobQuirkiness_50th','blobQuirkiness_90th','blobSolidity_50th','blobSolidity_90th','blobHu0_50th','blobHu1_50th','blobHu2_50th','blobHu3_50th'};
+%{'blobHu0_50th','blobHu1_50th','blobHu2_50th','blobHu3_50th','blobHu4_50th','blobHu5_50th','blobHu6_50th'};%,'blobSpeed_50th','d_blobSpeed_abs_50th','d_blobSpeed_abs_90th'};
+% {'blobCompactness_cluster_50th','blobCompactness_cluster_90th','blobSpeed_cluster_50th','blobSpeed_cluster_90th','blobArea_cluster_50th','blobArea_cluster_90th','blobQuirkiness_cluster_50th','blobQuirkiness_cluster_90th','blobSolidity_cluster_50th','blobSolidity_cluster_90th','blobHu0_cluster_50th','blobHu1_cluster_50th','blobHu2_cluster_50th','blobHu3_cluster_50th'};
 % which worm density to plot feature for?
 wormNum = 40; % 40 or 5
 % what to plot?
@@ -19,7 +24,7 @@ plotPhase4Divergent = true; % only works for 40 worms feature
 if wormNum==5
     featureTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_20200519_153722.csv');
 elseif wormNum==40
-    featureTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_20200519_153722_withBlobFeats.csv');
+    featureTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_20200519_153722_new_20200620.csv');
 else
     error('Please specify a valid wormNum.')
 end
@@ -75,7 +80,7 @@ for featCtr = 1:numel(features2plot)
         % load divergent strain names
         load('strainsList/divergent.mat','strains');
         % initialise new figure. Each row of the subplot is a worm category, each column is a time phase
-        figure;
+        phaseFig = figure;
         % generate colour map for plotting strains
         plotcolors = parula(numel(strains));
         % TODO: add something to check for regular expression pattern before splitting string
@@ -119,33 +124,37 @@ for featCtr = 1:numel(features2plot)
             subplot(5,1,1); hold on
             vals2plot = expandedFeatureVals(strainLogInd,1:5);
             plot([1:5],nanmean(vals2plot,1),'-x','Color',plotcolors(strainCtr,:))
+            title('all tracked objects')
             % sw category
             subplot(5,1,2); hold on
             vals2plot = expandedFeatureVals(strainLogInd,6:10);
             plot([1:5],nanmean(vals2plot,1),'-x','Color',plotcolors(strainCtr,:))
+            title('single worms')
             % mw category
             subplot(5,1,3); hold on
             vals2plot = expandedFeatureVals(strainLogInd,11:15);
             plot([1:5],nanmean(vals2plot,1),'-x','Color',plotcolors(strainCtr,:))
+            title('multi worms')
             % cluster category
             subplot(5,1,4); hold on
             vals2plot = expandedFeatureVals(strainLogInd,16:20);
             plot([1:5],nanmean(vals2plot,1),'-x','Color',plotcolors(strainCtr,:))
+            title('clusters')
             % pausedmw category
             subplot(5,1,5); hold on
             vals2plot = expandedFeatureVals(strainLogInd,21:25);
             plot([1:5],nanmean(vals2plot,1),'-x','Color',plotcolors(strainCtr,:))
+            title('paused multi worms')
         end
         % format plots
-        subplot(5,1,1);title('all tracked blobs'); legend(strains); ylabel(featureName,'Interpreter','None');
-        xticks(1:5); xticklabels({'0-15','15-30','30-45','15-45','0-45'}); xlabel('Recording duration (min)')
-        subplot(5,1,2);title('single worms'); legend(strains);ylabel(featureName,'Interpreter','None');
-        xticks(1:5); xticklabels({'0-15','15-30','30-45','15-45','0-45'}); xlabel('Recording duration (min)')
-        subplot(5,1,3);title('multi worms'); legend(strains);ylabel(featureName,'Interpreter','None');
-        xticks(1:5); xticklabels({'0-15','15-30','30-45','15-45','0-45'}); xlabel('Recording duration (min)')
-        subplot(5,1,4);title('clusters'); legend(strains);ylabel(featureName,'Interpreter','None');
-        xticks(1:5); xticklabels({'0-15','15-30','30-45','15-45','0-45'}); xlabel('Recording duration (min)')
-        subplot(5,1,5);title('paused multi worms'); legend(strains);ylabel(featureName,'Interpreter','None');
-        xticks(1:5); xticklabels({'0-15','15-30','30-45','15-45','0-45'}); xlabel('Recording duration (min)')
+        allaxes = findall(phaseFig, 'type', 'axes');
+        linkaxes(allaxes);
+        for subplotCtr = 1:numel(allaxes) % findall gets subplot handles in the reverse order
+            legend(allaxes(subplotCtr),strains)
+            xticks(allaxes(subplotCtr),[1:5])
+            xticklabels(allaxes(subplotCtr),{'0-15','15-30','30-45','15-45','0-45'})
+            xlabel(allaxes(subplotCtr),{'Recording duration (min)'})
+            ylabel(allaxes(subplotCtr),{featureName},'Interpreter','None')
+        end
     end
 end
