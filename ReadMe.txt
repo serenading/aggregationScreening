@@ -1,8 +1,10 @@
 Features summaries files to use:
 
-20200519_153722 feature summaries have 3016 features (without dorsal-ventral features) with short, matlab-friendly names;
-20200511_162714 feature summaries have 3016 features (without dorsal-ventral features) with short, matlab-friendly names; for three windows of subdivided 15-minute movies;
+20200630_171156 augmented feature summaries have xxxx features (without dorsal-ventral features) with short, matlab-friendly names. Augmented with 5 fold at 0.8 trajectory ratio, up to 30 min. Windows: window0: 0-15 min window1: 15-30 min, window2: 30-45 min, window3: 15-45 min, window 4: 0-45 min.
+20200519_153722 feature summaries have 3016 features (without dorsal-ventral features) with short, matlab-friendly names.
+20200511_162714 feature summaries have 3016 features (without dorsal-ventral features) with short, matlab-friendly names; for three windows of subdivided 15-minute movie. Windows: window0: 0-15 min, window1: 15-30 min, window2: 30-45 min).
 20191024_122847 feature summaries have 4548 full features (including dorsal-ventral features). 
+
 
 Useful scripts:
 
@@ -13,7 +15,12 @@ testForFeatNormality: test features extracted from three control strains at 5 wo
 compareSwFeatDensityEffect: analyses density effects in isolated single (skeletonisable) worms using Tierpsy features from 5 vs. 40 worm experiments. Identifies key features that show density dependency in more than 10% of the strains(, and identifies key strains (none) where more than 10% of the Tierpsy features show density dependency). 
 classifyVariable: uses supervised machine learning algorithms to train classifiers for a specified variable based on extracted Tierpsy features. It also has the option to apply sequantial feature selection to identify top features to use for classification.
 compareGenoPhenoDM: compares distance matrices  based on genotype (SNPs) and phenotype (Tierpsy features) across strains. Useful option: makeMappingFile: outputs a .tsv file in the correct format for cegwas2-nf mapping
+
+Plotting scripts:
+
 plotFeatsFromTable: reads in featureTable and optionally plots boxplots for all strains (40 and 5 worms) and/or expanded feature values across worm categories and movie phases (40 worm only).
+plotDivStats: reads in featureTable and plots stacked bar graphs for blob category and food region statistics to show comprising fractions of tracking indices (40 worm only).
+
 
 Useful functions:
 
@@ -21,3 +28,4 @@ preprocessFeatMat: pro-processes features matrix with several steps such as drop
 filterFeatureTable: filters features table by specified strain and feature requirements before classification tasks. Uses dropFeats and dropStrains.
 dropFeats
 dropStrains
+appendFeatsToFeatureTable: appends newFeatureTable with the existing featureTable.

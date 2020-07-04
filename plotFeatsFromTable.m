@@ -11,7 +11,7 @@ addpath('auxiliary/')
 
 %% Set analysis parameters
 % choose which feature to plot. Cell containing strings that match feature variable names
-features2plot = {'blobCompactness_50th','blobCompactness_90th','blobSpeed_50th','blobSpeed_90th','blobArea_50th','blobArea_90th','blobQuirkiness_50th','blobQuirkiness_90th','blobSolidity_50th','blobSolidity_90th','blobHu0_50th','blobHu1_50th','blobHu2_50th','blobHu3_50th'};
+features2plot = {'blobSpeed_50th','blobSpeed_90th'};
 %{'blobHu0_50th','blobHu1_50th','blobHu2_50th','blobHu3_50th','blobHu4_50th','blobHu5_50th','blobHu6_50th'};%,'blobSpeed_50th','d_blobSpeed_abs_50th','d_blobSpeed_abs_90th'};
 % {'blobCompactness_cluster_50th','blobCompactness_cluster_90th','blobSpeed_cluster_50th','blobSpeed_cluster_90th','blobArea_cluster_50th','blobArea_cluster_90th','blobQuirkiness_cluster_50th','blobQuirkiness_cluster_90th','blobSolidity_cluster_50th','blobSolidity_cluster_90th','blobHu0_cluster_50th','blobHu1_cluster_50th','blobHu2_cluster_50th','blobHu3_cluster_50th'};
 % which worm density to plot feature for?
@@ -158,3 +158,6 @@ for featCtr = 1:numel(features2plot)
         end
     end
 end
+
+%% some 40 worm results:
+% ECA252 (high hu2,hu3, low blob speed) , XZ1514 (low hu0,hu1,low quirkiness)

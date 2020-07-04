@@ -1,4 +1,4 @@
-function [singleWormLogInd,multiWormLogInd,clusterLogInd,pausedMwLogInd] = findClusters(trajData,blobFeats,clusterArea,features)
+function [singleWormLogInd,multiWormLogInd,clusterLogInd,pausedMwLogInd] = findClusters(trajData,blobFeats,clusterArea,tsFeatures)
 
 %% function generates clusterLogInd the same size as trajData files to detect clusters based on blob area.
 
@@ -6,7 +6,7 @@ function [singleWormLogInd,multiWormLogInd,clusterLogInd,pausedMwLogInd] = findC
 % trajData = h5read(filename,'/trajectories_data'); filename being the featuresN.hdf5.
 % blobFeats = h5read(filename,'/blob_features');
 % clusterArea: minimum cluster relative area compared to a single worm area;
-% features = h5read(filename,'/timeseries_data');
+% tsFeatures = h5read(filename,'/timeseries_data');
 
 %% OUTPUT:
 % logical indices for single worms (blobs that skeletonise), multiworms
@@ -24,4 +24,4 @@ swArea = median(swAreas);
 normAreas = blobFeats.area/swArea;
 clusterLogInd =  normAreas > clusterArea;
 % find paused multi worms
-pausedMwLogInd = features.motion_mode == 0 & trajData.was_skeletonized==0; % visual inspection of movies revealed this category of special interest
+pausedMwLogInd = tsFeatures.motion_mode == 0 & trajData.was_skeletonized==0; % visual inspection of movies revealed this category of special interest

@@ -9,10 +9,12 @@
 clear 
 close all
 
+override = false;
+
 %% Import features data and combine with metadata
 
 % set which feature extraction timestamp to use
-featExtractTimestamp = '20200511_162714'; %'20200519_153722' (feat 3016) or '20200511_162714' (feat 3016 windows) or '20191024_122847' (feat 4548)
+featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3016) or '20200511_162714' (feat 3016 windows) or '20191024_122847' (feat 4548)
 if strcmp(featExtractTimestamp,'20200511_162714')
     featExtractWindow = '2'; %'0','1','2'
     extractStamp = [featExtractTimestamp '_window_' featExtractWindow];
@@ -23,7 +25,7 @@ end
 % load features matrix, correspondong filenames, and metadata
 tierpsyFeatureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/source/features_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',');%,'preserveVariableNames',true);
 tierpsyFileTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/source/filenames_summary_tierpsy_plate_' extractStamp '.csv'],'Delimiter',',','CommentStyle','#');%,'preserveVariableNames',true);
-metadataTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/source/metadata_aggregationScreening.csv','Delimiter',',');
+metadataTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/source/metadata_aggregationScreening.csv','Delimiter',',');%,'preserveVariableNames',true);
 % features from '20200519_153722' and ''20200511_162714' are missing the 9 food region features that need appending
 if strcmp(featExtractTimestamp,'20200519_153722')
     tierpsyFeatureTable2 = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/source/features_summary_select_by_keywords_tierpsy_plate_20200526_194039_window_3.csv','Delimiter',',');%,'preserveVariableNames',true);
@@ -66,7 +68,9 @@ rowLogInd = ~isnan(featureTable.wormNum) & featureTable.is_bad == 0 & strcmp(fea
 featureTable = featureTable(rowLogInd,:);
 
 % export full features table
-writetable(featureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' extractStamp '.csv']);
+if override
+    writetable(featureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fullFeaturesTable_' extractStamp '.csv']);
+end
 
 %% Get five worm features table with features
 
@@ -79,7 +83,9 @@ strainNameColIdx = find(strcmp(fiveWormFeatureTable.Properties.VariableNames,'st
 fiveWormFeatureTable = sortrows(fiveWormFeatureTable,strainNameColIdx);
 
 % export features table
-writetable(fiveWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' extractStamp '.csv']);
+if override
+    % writetable(fiveWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' extractStamp '.csv']);
+end
 
 %% Get forty worm features table with features
 
@@ -92,7 +98,9 @@ strainNameColIdx = find(strcmp(fortyWormFeatureTable.Properties.VariableNames,'s
 fortyWormFeatureTable = sortrows(fortyWormFeatureTable,strainNameColIdx);
 
 % export features table
-writetable(fortyWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_sw_' extractStamp '.csv']);
+if override
+    writetable(fortyWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_sw_' extractStamp '.csv']);
+end
 
 %% Get forty worm features table but remove all features
 
@@ -100,4 +108,6 @@ writetable(fortyWormFeatureTable,['/Users/sding/OneDrive - Imperial College Lond
 fortyWormFeatureTable = fortyWormFeatureTable(:,1:17);
 
 % export features table
-writetable(fortyWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '.csv']);
+if override
+    writetable(fortyWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '.csv']);
+end

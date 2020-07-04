@@ -1,0 +1,126 @@
+%% Function expands base feature based on stats, worm type, and movie phase.
+
+%% INPUTS:
+% feature: numeric feature vector.
+% featureBaseName: string of the feature name.
+
+%% OUTPUTS:
+% featVals: vector of expanded feature values.
+% featNames: cell array containing strings of expanded feature names.
+
+% author: serenading. June 2020
+
+function [values, names] = expandFeature2(feature,featureBaseName,singleWormLogInd,multiWormLogInd,clusterLogInd,pausedMwLogInd,onFoodLogInd,foodEdgeLogInd,offFoodLogInd)
+
+
+%% get stats
+[feature_10th, feature_50th, feature_90th, feature_IQR] = getstats(feature);
+
+%% expand based on worm category
+feature_sw = feature(singleWormLogInd);
+feature_mw = feature(multiWormLogInd);
+feature_cluster = feature(clusterLogInd);
+feature_pausedmw = feature(pausedMwLogInd);
+%
+[feature_sw_10th,feature_sw_50th,feature_sw_90th,feature_sw_IQR] = getstats(feature_sw);
+[feature_mw_10th,feature_mw_50th,feature_mw_90th,feature_mw_IQR] = getstats(feature_mw);
+[feature_cluster_10th,feature_cluster_50th,feature_cluster_90th,feature_cluster_IQR] = getstats(feature_cluster);
+[feature_pausedmw_10th,feature_pausedmw_50th,feature_pausedmw_90th,feature_pausedmw_IQR] = getstats(feature_pausedmw);
+
+%% expand based on food region
+feature_onFood = feature(onFoodLogInd);
+feature_foodEdge = feature(foodEdgeLogInd);
+feature_offFood = feature(offFoodLogInd);
+%
+[feature_onFood_10th,feature_onFood_50th,feature_onFood_90th,feature_onFood_IQR] = getstats(feature_onFood);
+[feature_foodEdge_10th,feature_foodEdge_50th,feature_foodEdge_90th,feature_foodEdge_IQR] = getstats(feature_foodEdge);
+[feature_offFood_10th,feature_offFood_50th,feature_offFood_90th,feature_offFood_IQR] = getstats(feature_offFood);
+
+%% expand based worm category & food region
+feature_sw_onFood = feature(singleWormLogInd & onFoodLogInd);
+feature_sw_foodEdge = feature(singleWormLogInd & foodEdgeLogInd);
+feature_sw_offFood = feature(singleWormLogInd & offFoodLogInd);
+%
+feature_mw_onFood = feature(multiWormLogInd & onFoodLogInd);
+feature_mw_foodEdge = feature(multiWormLogInd & foodEdgeLogInd);
+feature_mw_offFood = feature(multiWormLogInd & offFoodLogInd);
+%
+feature_cluster_onFood = feature(clusterLogInd & onFoodLogInd);
+feature_cluster_foodEdge = feature(clusterLogInd & foodEdgeLogInd);
+feature_cluster_offFood = feature(clusterLogInd & offFoodLogInd);
+%
+feature_pausedmw_onFood = feature(pausedMwLogInd & onFoodLogInd);
+feature_pausedmw_foodEdge = feature(pausedMwLogInd & foodEdgeLogInd);
+feature_pausedmw_offFood = feature(pausedMwLogInd & offFoodLogInd);
+%
+[feature_sw_onFood_10th,feature_sw_onFood_50th,feature_sw_onFood_90th,feature_sw_onFood_IQR] = getstats(feature_sw_onFood);
+[feature_sw_foodEdge_10th,feature_sw_foodEdge_50th,feature_sw_foodEdge_90th,feature_sw_foodEdge_IQR] = getstats(feature_sw_foodEdge);
+[feature_sw_offFood_10th,feature_sw_offFood_50th,feature_sw_offFood_90th,feature_sw_offFood_IQR] = getstats(feature_sw_offFood);
+%
+[feature_mw_onFood_10th,feature_mw_onFood_50th,feature_mw_onFood_90th,feature_mw_onFood_IQR] = getstats(feature_mw_onFood);
+[feature_mw_foodEdge_10th,feature_mw_foodEdge_50th,feature_mw_foodEdge_90th,feature_mw_foodEdge_IQR] = getstats(feature_mw_foodEdge);
+[feature_mw_offFood_10th,feature_mw_offFood_50th,feature_mw_offFood_90th,feature_mw_offFood_IQR] = getstats(feature_mw_offFood);
+%
+[feature_cluster_onFood_10th,feature_cluster_onFood_50th,feature_cluster_onFood_90th,feature_cluster_onFood_IQR] = getstats(feature_cluster_onFood);
+[feature_cluster_foodEdge_10th,feature_cluster_foodEdge_50th,feature_cluster_foodEdge_90th,feature_cluster_foodEdge_IQR] = getstats(feature_cluster_foodEdge);
+[feature_cluster_offFood_10th,feature_cluster_offFood_50th,feature_cluster_offFood_90th,feature_cluster_offFood_IQR] = getstats(feature_cluster_offFood);
+%
+[feature_pausedmw_onFood_10th,feature_pausedmw_onFood_50th,feature_pausedmw_onFood_90th,feature_pausedmw_onFood_IQR] = getstats(feature_pausedmw_onFood);
+[feature_pausedmw_foodEdge_10th,feature_pausedmw_foodEdge_50th,feature_pausedmw_foodEdge_90th,feature_pausedmw_foodEdge_IQR] = getstats(feature_pausedmw_foodEdge);
+[feature_pausedmw_offFood_10th,feature_pausedmw_offFood_50th,feature_pausedmw_offFood_90th,feature_pausedmw_offFood_IQR] = getstats(feature_pausedmw_offFood);
+
+%% collate extracted values into a vector
+
+values = horzcat(feature_10th, feature_50th, feature_90th, feature_IQR,...
+    feature_sw_10th,feature_sw_50th,feature_sw_90th,feature_sw_IQR,...
+    feature_mw_10th,feature_mw_50th,feature_mw_90th,feature_mw_IQR,...
+    feature_cluster_10th,feature_cluster_50th,feature_cluster_90th,feature_cluster_IQR,...
+    feature_pausedmw_10th,feature_pausedmw_50th,feature_pausedmw_90th,feature_pausedmw_IQR,...
+    feature_onFood_10th,feature_onFood_50th,feature_onFood_90th,feature_onFood_IQR,...
+    feature_foodEdge_10th,feature_foodEdge_50th,feature_foodEdge_90th,feature_foodEdge_IQR,...
+    feature_offFood_10th,feature_offFood_50th,feature_offFood_90th,feature_offFood_IQR,...
+    feature_sw_onFood_10th,feature_sw_onFood_50th,feature_sw_onFood_90th,feature_sw_onFood_IQR,...
+    feature_sw_foodEdge_10th,feature_sw_foodEdge_50th,feature_sw_foodEdge_90th,feature_sw_foodEdge_IQR,...
+    feature_sw_offFood_10th,feature_sw_offFood_50th,feature_sw_offFood_90th,feature_sw_offFood_IQR,...
+    feature_mw_onFood_10th,feature_mw_onFood_50th,feature_mw_onFood_90th,feature_mw_onFood_IQR,...
+    feature_mw_foodEdge_10th,feature_mw_foodEdge_50th,feature_mw_foodEdge_90th,feature_mw_foodEdge_IQR,...
+    feature_mw_offFood_10th,feature_mw_offFood_50th,feature_mw_offFood_90th,feature_mw_offFood_IQR,...
+    feature_cluster_onFood_10th,feature_cluster_onFood_50th,feature_cluster_onFood_90th,feature_cluster_onFood_IQR,...
+    feature_cluster_foodEdge_10th,feature_cluster_foodEdge_50th,feature_cluster_foodEdge_90th,feature_cluster_foodEdge_IQR,...
+    feature_cluster_offFood_10th,feature_cluster_offFood_50th,feature_cluster_offFood_90th,feature_cluster_offFood_IQR,...
+    feature_pausedmw_onFood_10th,feature_pausedmw_onFood_50th,feature_pausedmw_onFood_90th,feature_pausedmw_onFood_IQR,...
+    feature_pausedmw_foodEdge_10th,feature_pausedmw_foodEdge_50th,feature_pausedmw_foodEdge_90th,feature_pausedmw_foodEdge_IQR,...
+    feature_pausedmw_offFood_10th,feature_pausedmw_offFood_50th,feature_pausedmw_offFood_90th,feature_pausedmw_offFood_IQR);
+
+%% collate extracted feature names into a cell array
+
+names = horzcat({[featureBaseName, '_10th']}, {[featureBaseName, '_50th']}, {[featureBaseName, '_90th']}, {[featureBaseName, '_IQR']},...
+    {[featureBaseName, '_sw_10th']}, {[featureBaseName, '_sw_50th']}, {[featureBaseName, '_sw_90th']}, {[featureBaseName, '_sw_IQR']},...
+    {[featureBaseName, '_mw_10th']}, {[featureBaseName, '_mw_50th']}, {[featureBaseName, '_mw_90th']}, {[featureBaseName, '_mw_IQR']},...
+    {[featureBaseName, '_cluster_10th']}, {[featureBaseName, '_cluster_50th']}, {[featureBaseName, '_cluster_90th']}, {[featureBaseName, '_cluster_IQR']},...
+    {[featureBaseName, '_pausedmw_10th']}, {[featureBaseName, '_pausedmw_50th']}, {[featureBaseName, '_pausedmw_90th']}, {[featureBaseName, '_pausedmw_IQR']},...
+    {[featureBaseName, '_onFood_10th']}, {[featureBaseName, '_onFood_50th']}, {[featureBaseName, '_onFood_90th']}, {[featureBaseName, '_onFood_IQR']},...
+    {[featureBaseName, '_foodEdge_10th']}, {[featureBaseName, '_foodEdge_50th']}, {[featureBaseName, '_foodEdge_90th']}, {[featureBaseName, '_foodEdge_IQR']},...
+    {[featureBaseName, '_offFood_10th']}, {[featureBaseName, '_offFood_50th']}, {[featureBaseName, '_offFood_90th']}, {[featureBaseName, '_offFood_IQR']},...
+    {[featureBaseName, '_sw_onFood_10th']}, {[featureBaseName, '_sw_onFood_50th']}, {[featureBaseName, '_sw_onFood_90th']}, {[featureBaseName, '_sw_onFood_IQR']},...
+    {[featureBaseName, '_sw_foodEdge_10th']}, {[featureBaseName, '_sw_foodEdge_50th']}, {[featureBaseName, '_sw_foodEdge_90th']}, {[featureBaseName, '_sw_foodEdge_IQR']},...
+    {[featureBaseName, '_sw_offFood_10th']}, {[featureBaseName, '_sw_offFood_50th']}, {[featureBaseName, '_sw_offFood_90th']}, {[featureBaseName, '_sw_offFood_IQR']},...
+    {[featureBaseName, '_mw_onFood_10th']}, {[featureBaseName, '_mw_onFood_50th']}, {[featureBaseName, '_mw_onFood_90th']}, {[featureBaseName, '_mw_onFood_IQR']},...
+    {[featureBaseName, '_mw_foodEdge_10th']}, {[featureBaseName, '_mw_foodEdge_50th']}, {[featureBaseName, '_mw_foodEdge_90th']}, {[featureBaseName, '_mw_foodEdge_IQR']},...
+    {[featureBaseName, '_mw_offFood_10th']}, {[featureBaseName, '_mw_offFood_50th']}, {[featureBaseName, '_mw_offFood_90th']}, {[featureBaseName, '_mw_offFood_IQR']},...
+    {[featureBaseName, '_cluster_onFood_10th']}, {[featureBaseName, '_cluster_onFood_50th']}, {[featureBaseName, '_cluster_onFood_90th']}, {[featureBaseName, '_cluster_onFood_IQR']},...
+    {[featureBaseName, '_cluster_foodEdge_10th']}, {[featureBaseName, '_cluster_foodEdge_50th']}, {[featureBaseName, '_cluster_foodEdge_90th']}, {[featureBaseName, '_cluster_foodEdge_IQR']},...
+    {[featureBaseName, '_cluster_offFood_10th']}, {[featureBaseName, '_cluster_offFood_50th']}, {[featureBaseName, '_cluster_offFood_90th']}, {[featureBaseName, '_cluster_offFood_IQR']},...
+    {[featureBaseName, '_pausedmw_onFood_10th']}, {[featureBaseName, '_pausedmw_onFood_50th']}, {[featureBaseName, '_pausedmw_onFood_90th']}, {[featureBaseName, '_pausedmw_onFood_IQR']},...
+    {[featureBaseName, '_pausedmw_foodEdge_10th']}, {[featureBaseName, '_pausedmw_foodEdge_50th']}, {[featureBaseName, '_pausedmw_foodEdge_90th']}, {[featureBaseName, '_pausedmw_foodEdge_IQR']},...
+    {[featureBaseName, '_pausedmw_offFood_10th']}, {[featureBaseName, '_pausedmw_offFood_50th']}, {[featureBaseName, '_pausedmw_offFood_90th']}, {[featureBaseName, '_pausedmw_offFood_IQR']});
+
+end
+%% Local function: extracts 10th, 50, 90th percentile and interquartile range of a given feature
+
+function [feature_10th, feature_50th, feature_90th, feature_IQR] = getstats(feature)
+feature_10th = prctile(feature,10);
+feature_50th = prctile(feature,50);
+feature_90th = prctile(feature,90);
+feature_IQR = iqr(feature);
+end
