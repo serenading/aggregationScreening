@@ -1,4 +1,4 @@
-%% Function expands base feature based on stats, worm type, and movie phase.
+%% Function expands base blob feature based on stats, worm type, and movie phase.
 
 %% INPUTS:
 % feature: numeric feature vector.

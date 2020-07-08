@@ -1,4 +1,4 @@
-
+%% This script plots Perdurance Survival curve for the fluorescence dataset.
 
 cumSurvivalFig = figure;
 legendMatrix=cell(length(strains)*length(wormnums),1);

@@ -16,8 +16,14 @@ compareSwFeatDensityEffect: analyses density effects in isolated single (skeleto
 classifyVariable: uses supervised machine learning algorithms to train classifiers for a specified variable based on extracted Tierpsy features. It also has the option to apply sequantial feature selection to identify top features to use for classification.
 compareGenoPhenoDM: compares distance matrices  based on genotype (SNPs) and phenotype (Tierpsy features) across strains. Useful option: makeMappingFile: outputs a .tsv file in the correct format for cegwas2-nf mapping
 
-Plotting scripts:
+Feature calculation scripts and functions:
+calculateBlobSpeed: Function calculates blobSpeed (smoothed over 1 second unless otherwise specified) and d_blobSpeed (over dT window of 1/3 second unless otherwise specified, calculated from smoothed speeds).
+calculateClusterPerduranceAndSizeDist: Script extracts cluster perdurance and cluster size distribution statistics and optionally generates diagnostic plots for the divergent panel.
+calculateDivStatsAndBlobFeatures: Script extracts Tierpsy blob features from 40 worm tracking data to generate a feature table for joining onto the master feature table.
+expandBlobFeature: Function expands base blob feature based on stats, worm type, and movie phase.
+expandBlobFeature2: Function expands base blob feature based on stats, worm type, and food region.
 
+Feature plotting scripts:
 plotFeatsFromTable: reads in featureTable and optionally plots boxplots for all strains (40 and 5 worms) and/or expanded feature values across worm categories and movie phases (40 worm only).
 plotDivStats: reads in featureTable and plots stacked bar graphs for blob category and food region statistics to show comprising fractions of tracking indices (40 worm only).
 
@@ -28,4 +34,4 @@ preprocessFeatMat: pro-processes features matrix with several steps such as drop
 filterFeatureTable: filters features table by specified strain and feature requirements before classification tasks. Uses dropFeats and dropStrains.
 dropFeats
 dropStrains
-appendFeatsToFeatureTable: appends newFeatureTable with the existing featureTable.
+appendFeatsToFeatureTable: appends new features from newFeatureTable to the existing featureTable.

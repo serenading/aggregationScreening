@@ -11,20 +11,20 @@ addpath('auxiliary/')
 
 %% Set analysis parameters
 % choose which feature to plot. Cell containing strings that match feature variable names
-features2plot = {'blobSpeed_50th','blobSpeed_90th'};
-%{'blobHu0_50th','blobHu1_50th','blobHu2_50th','blobHu3_50th','blobHu4_50th','blobHu5_50th','blobHu6_50th'};%,'blobSpeed_50th','d_blobSpeed_abs_50th','d_blobSpeed_abs_90th'};
+features2plot = {'cluster_perdurance_90prc','cluster_perdurance_50prc','cluster_perdurance_10prc','food_region_inside_fraction','food_region_outside_fraction','food_region_edge_fraction'};
+%{'blobSpeed_50th','blobSpeed_90th','blobHu0_50th','blobHu1_50th','blobHu2_50th','blobHu3_50th','blobHu4_50th','blobHu5_50th','blobHu6_50th'};%,'blobSpeed_50th','d_blobSpeed_abs_50th','d_blobSpeed_abs_90th'};
 % {'blobCompactness_cluster_50th','blobCompactness_cluster_90th','blobSpeed_cluster_50th','blobSpeed_cluster_90th','blobArea_cluster_50th','blobArea_cluster_90th','blobQuirkiness_cluster_50th','blobQuirkiness_cluster_90th','blobSolidity_cluster_50th','blobSolidity_cluster_90th','blobHu0_cluster_50th','blobHu1_cluster_50th','blobHu2_cluster_50th','blobHu3_cluster_50th'};
 % which worm density to plot feature for?
-wormNum = 40; % 40 or 5
+wormNum = 5; % 40 or 5
 % what to plot?
 plotboxplot = true;
-plotPhase4Divergent = true; % only works for 40 worms feature
+plotPhase4Divergent = false; % only works for 40 worms feature
 
 %% Load featureTable
 if wormNum==5
-    featureTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_20200519_153722.csv');
+    featureTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_20200519_153722_20200708_ft2891.csv');
 elseif wormNum==40
-    featureTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_20200519_153722_new_20200620.csv');
+    featureTable = readtable('/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_20200519_153722_20200708_ft2891.csv');
 else
     error('Please specify a valid wormNum.')
 end
