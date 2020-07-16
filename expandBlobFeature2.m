@@ -10,7 +10,7 @@
 
 % author: serenading. June 2020
 
-function [values, names] = expandFeature2(feature,featureBaseName,singleWormLogInd,multiWormLogInd,clusterLogInd,pausedMwLogInd,onFoodLogInd,foodEdgeLogInd,offFoodLogInd)
+function [values, names] = expandBlobFeature2(feature,featureBaseName,singleWormLogInd,multiWormLogInd,clusterLogInd,pausedMwLogInd,onFoodLogInd,foodEdgeLogInd,offFoodLogInd)
 
 
 %% get stats

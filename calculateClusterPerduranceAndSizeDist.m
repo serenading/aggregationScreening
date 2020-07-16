@@ -6,7 +6,7 @@ clear
 
 addpath('auxiliary/')
 
-% TODO: what stats to extract for cluster size distribution?
+% TODO: expand these features based on food region
 
 %% Specify analysis parameters
 
@@ -15,7 +15,7 @@ whichHD = 1; % Scalar. Specify 1 or 2. Specify 0 if both 1 and 2 are plugged in.
 % set which feature extraction timestamp to use (doesn't matter as we are calculating our own feats)
 extractStamp = '20200519_153722';
 % which worm density?
-wormNum = 5;
+wormNum = 40;
 % some file attributes
 frameRate = 25;
 pixelToMicron = 10; % 1 pixel is 10 microns
@@ -26,35 +26,8 @@ windowDuration = 5; % time window duration in minutes
 plot4Divergent = true;
 
 %% load feature table
-if wormNum == 40 
-    %% find which files are on which HD
-    featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_' extractStamp '.csv'],'Delimiter',',','preserveVariableNames',true);
-    % load divergent strain names (these are copied onto HD1, the rest onto HD2)
-    load('strainsList/divergent.mat','strains');
-    % initialise onHD1 variable to say if the file is on HD1
-    onHD1 = false(size(featureTable,1),1);
-    % go through the divergent strains to set their onHD1 status to true
-    for strainCtr = 1:numel(strains)
-        strain = strains{strainCtr};
-        strainLogInd = strcmp(featureTable.strain_name,strain);
-        onHD1(strainLogInd) = true;
-    end
-    % append onHD1 variable to featureTable
-    featureTable.onHD1 = onHD1;
-    %% Go through each file that is present on this HD to extract features
-    if whichHD ==1
-        fileInd = find(featureTable.onHD1);
-    elseif whichHD ==2
-        fileInd = find(~featureTable.onHD1);
-    elseif whichHD ==0 % both HDs plugged in
-        fileInd = 1:numel(featureTable.onHD1);
-    end
-elseif wormNum ==5 
-    %% all files are on HD1
-    assert(whichHD == 1, ['HD' num2str(whichHD) ' is plugged in, but all five worm data are on HD1.']);
-    featureTable = readtable(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' extractStamp '.csv'],'Delimiter',',','preserveVariableNames',true);
-    fileInd = 1:size(featureTable,1);
-end
+[featureTable,fileInd] = extractHDLocation(wormNum,extractStamp,whichHD);
+
 %% Initialise and preallocate
 % filenames
 filenames = repmat({''},numel(fileInd),1);
@@ -132,36 +105,73 @@ end
 %% save intermediate results
 timestamp=datetime('today','Format','yyyyMMdd');
 if wormNum == 40
-    save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/newFeatsToAdd/clusterAnalysis_' char(timestamp) '.mat'],'perduranceC','clusterSizeC','filenames','strainnames','-v7.3');
+    save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/newFeatsToAdd/clusterAnalysis_' char(timestamp) '.mat'],'perduranceC','clusterSizeC','filenames','strainnames','legendtext_cs','-v7.3');
 elseif wormNum == 5
-    save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/newFeatsToAdd/clusterAnalysis_' char(timestamp) '.mat'],'perduranceC','clusterSizeC','filenames','strainnames','-v7.3');
+    save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/newFeatsToAdd/clusterAnalysis_' char(timestamp) '.mat'],'perduranceC','clusterSizeC','filenames','strainnames','legendtext_cs','-v7.3');
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  calculate further stats
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% cluster perdurance cumulative survival analysis
-% initialise
+%% initialise for cp
 cluster_perdurance_90prc = NaN(size(filenames));
 cluster_perdurance_50prc = NaN(size(filenames));
 cluster_perdurance_10prc = NaN(size(filenames));
-% calculate time to 90%, 50%, 10% cluster survival (in seconds)
+
+%% initialise for cs
+cluster_size_varnames = repmat({''},numel(timeWindowStarts),4);
+for twCtr = 1:numel(timeWindowStarts)
+%     % preallocate matrix to hold stats
+%     cluster_size_master_10th = NaN(size(clusterSizeC));
+%     cluster_size_master_50th = NaN(size(clusterSizeC));
+%     cluster_size_master_90th = NaN(size(clusterSizeC));
+%     cluster_size_master_IQR = NaN(size(clusterSizeC));
+    % generate variable names
+    windowTxt = [num2str(timeWindowStarts(twCtr)) '_' num2str(timeWindowStarts(twCtr) + windowDuration) 'min'];
+    cluster_size_varnames{twCtr,1} = ['cluster_size_' windowTxt '_10th'];
+    cluster_size_varnames{twCtr,2} = ['cluster_size_' windowTxt '_50th'];
+    cluster_size_varnames{twCtr,3} = ['cluster_size_' windowTxt '_90th'];
+    cluster_size_varnames{twCtr,4} = ['cluster_size_' windowTxt '_iqr'];
+end
+% flatten variable names array
+cluster_size_varnames = reshape(cluster_size_varnames,[1,numel(cluster_size_varnames)]);
+
+%% calculate stats for each file
 for fileCtr = 1:numel(filenames)
+    %% cluster perdurance cumulative survival analysis: calculate time to 90%, 50%, 10% cluster survival (in seconds)
     [ecdfy,ecdfx] = ecdf(perduranceC{fileCtr});
     cluster_perdurance_90prc(fileCtr) = ecdfx(interp1(ecdfy,1:length(ecdfy),1-0.9,'nearest'));
     cluster_perdurance_50prc(fileCtr) = ecdfx(interp1(ecdfy,1:length(ecdfy),1-0.5,'nearest'));
     cluster_perdurance_10prc(fileCtr) = ecdfx(interp1(ecdfy,1:length(ecdfy),1-0.1,'nearest'));
+    
+    %% cluster size distribution analysis: extract size stats for each time window
+    for twCtr = 1:numel(timeWindowStarts)
+        cluster_size_master_10th(fileCtr,twCtr) = prctile(clusterSizeC{fileCtr,twCtr},10);
+        cluster_size_master_50th(fileCtr,twCtr) = prctile(clusterSizeC{fileCtr,twCtr},50);
+        cluster_size_master_90th(fileCtr,twCtr) = prctile(clusterSizeC{fileCtr,twCtr},90);
+        cluster_size_master_IQR(fileCtr,twCtr) = iqr(clusterSizeC{fileCtr,twCtr});
+    end
 end
 
 %% save new feature table and append new features to the latest featureTable
-newFeatureTable = table(filenames,cluster_perdurance_90prc,cluster_perdurance_50prc,cluster_perdurance_10prc);
-newFeatureTable.Properties.VariableNames(1) = "filename"; % rename variable from filenames to filename to be consistent with other analyses
+% cp table
+cpTable = table(cluster_perdurance_90prc,cluster_perdurance_50prc,cluster_perdurance_10prc);
+% cs table
+csMatrix = [cluster_size_master_10th,cluster_size_master_50th,cluster_size_master_90th, cluster_size_master_IQR];
+csTable = array2table(csMatrix);
+csTable.Properties.VariableNames = cluster_size_varnames;
+% combine tables and add filenames for merging
+newFeatureTable = [cpTable, csTable];
+newFeatureTable.filename = filenames;
+% save newFeatureTable
+timestamp=datetime('today','Format','yyyyMMdd');
 if wormNum == 40
-    save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/newFeatsToAdd/fortyWormFeaturesTable_' extractStamp '_new_' char(timestamp) '.mat'],'newFeatureTable')
+    save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/newFeatsToAdd/fortyWormFeaturesTable_' extractStamp '_new_' char(timestamp) '_clusterperdsize.mat'],'newFeatureTable')
 elseif wormNum == 5
-    save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/newFeatsToAdd/fiveWormFeaturesTable_' extractStamp '_new_' char(timestamp) '.mat'],'newFeatureTable')
+    save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/newFeatsToAdd/fiveWormFeaturesTable_' extractStamp '_new_' char(timestamp) '_clusterperdsize.mat'],'newFeatureTable')
 end
+% append new features
 appendFeatsToFeatureTable(newFeatureTable,wormNum,extractStamp);
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -229,7 +239,14 @@ if plot4Divergent
     % cluster size distribution plot
     allaxes = findall(clusterSizeDistributionFig,'type','axes');
     linkaxes(allaxes)
-    xlim(allaxes,[0.03,0.3]) % zoom in on areas corresponding to 1-6 worms
-    ylim(allaxes,[0,5])
-    
+    set(allaxes, 'FontSize', 12)
+    if wormNum == 40
+        set(allaxes, 'YScale', 'log')
+        xlim(allaxes,[0 2]) 
+        ylim(allaxes,[1e-4,1e2])
+    elseif wormNum ==5
+        set(allaxes, 'YScale', 'linear')
+        xlim(allaxes,[0.03 0.3])
+        ylim(allaxes,[0 5])
+    end
 end

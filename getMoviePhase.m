@@ -1,6 +1,6 @@
 % Author: @serenading. June 2020
 
-function [phase1LogInd, phase2LogInd, phase3LogInd, notPhase1LogInd] = restrictPhase(trajData,frameRate)
+function [phase1LogInd, phase2LogInd, phase3LogInd, notPhase1LogInd] = getMoviePhase(trajData,frameRate)
 
 phase1LogInd = trajData.frame_number < frameRate*60*15; % first 15 min
 phase2LogInd = (trajData.frame_number < frameRate*60*30) & ~ phase1LogInd; % middle 15 min

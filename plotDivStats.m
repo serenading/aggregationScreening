@@ -5,13 +5,13 @@ close all
 % Author: @serenading. July 2020
 
 %% Specify which dataset
-wormNum = 40;
+wormNum = 5;
 
 %% load
 if wormNum == 40
-    featureTablefilename = '/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_20200519_153722_20200704.csv';
+    featureTablefilename = '/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/fortyWormFeaturesTable_20200519_153722_20200708_ft2891.csv';
 elseif wormNum == 5
-    featureTablefilename = '/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_20200519_153722_20200704_ft3021.csv';
+    featureTablefilename = '/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_20200519_153722_20200708_ft3024.csv';
 end
 featureTable = readtable(featureTablefilename,'Delimiter',',','preserveVariableNames',true);
 uniqueStrains = unique(featureTable.strain_name);

@@ -12,18 +12,7 @@ assert(isa(newFeatureTable,'table'),'New feature table must have be in table for
 assert(ismember('filename',newFeatureTable.Properties.VariableNames), 'New feature table must contain filenames column to enable table joining.')
 
 %% Load the most recent features table to append to
-if wormNum == 40
-    dirname = '/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/';
-    d = dir([dirname 'fortyWormFeaturesTable_' extractStamp '*.csv']); 
-elseif wormNum ==5
-    dirname = '/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/';
-    d = dir([dirname 'fiveWormFeaturesTable_' extractStamp '*.csv']); 
-end
-
-[~,idx] = max([d.datenum]); % this gets the index of the latest file
-featureTableName = d(idx).name;
-featureTable = readtable([dirname featureTableName]);
-n_oldFeatures = size(featureTable,2)-17;
+featureTable = loadLatestFeatureTable(extractStamp,wormNum);
 
 %% Check that the existing table is in the correct format
 featNames = featureTable.Properties.VariableNames;

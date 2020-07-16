@@ -1,3 +1,7 @@
+Data location:
+
+Data are copied over two separate hard drives. All 5 worm dataset is on HD1. 40 worm data for the divergent strains are on HD1, and on HD2 for the rest of the strains.
+
 Features summaries files to use:
 
 20200630_171156 augmented feature summaries have xxxx features (without dorsal-ventral features) with short, matlab-friendly names. Augmented with 5 fold at 0.8 trajectory ratio, up to 30 min. Windows: window0: 0-15 min window1: 15-30 min, window2: 30-45 min, window3: 15-45 min, window 4: 0-45 min.
@@ -17,11 +21,15 @@ classifyVariable: uses supervised machine learning algorithms to train classifie
 compareGenoPhenoDM: compares distance matrices  based on genotype (SNPs) and phenotype (Tierpsy features) across strains. Useful option: makeMappingFile: outputs a .tsv file in the correct format for cegwas2-nf mapping
 
 Feature calculation scripts and functions:
+
 calculateBlobSpeed: Function calculates blobSpeed (smoothed over 1 second unless otherwise specified) and d_blobSpeed (over dT window of 1/3 second unless otherwise specified, calculated from smoothed speeds).
 calculateClusterPerduranceAndSizeDist: Script extracts cluster perdurance and cluster size distribution statistics and optionally generates diagnostic plots for the divergent panel.
-calculateDivStatsAndBlobFeatures: Script extracts Tierpsy blob features from 40 worm tracking data to generate a feature table for joining onto the master feature table.
+calculateBlobFeatures: Script extracts Tierpsy blob features from 40 worm tracking data to generate a feature table for joining onto the master feature table.
+calculateDivStat: Script extracts div statistics from tracking data to generate a feature table for joining onto the master feature table. Script is based on calculateBlobFeatures.m.
+
 expandBlobFeature: Function expands base blob feature based on stats, worm type, and movie phase.
 expandBlobFeature2: Function expands base blob feature based on stats, worm type, and food region.
+expandDivFeature: Function expands base div feature based on stats, worm type, food region, and movie phase.
 
 Feature plotting scripts:
 plotFeatsFromTable: reads in featureTable and optionally plots boxplots for all strains (40 and 5 worms) and/or expanded feature values across worm categories and movie phases (40 worm only).
@@ -30,8 +38,10 @@ plotDivStats: reads in featureTable and plots stacked bar graphs for blob catego
 
 Useful functions:
 
+loadLatestFeatureTable: loads the latest featureTable, because these get updated all the time as new features are added.
+extractHDLocation: finds which 40 worm files are on which HD and appends the information to featureTable under "onHD1" heading. Because the full dataset is spread over two HD's. 
+appendFeatsToFeatureTable: appends new features from newFeatureTable to the existing featureTable.
 preprocessFeatMat: pro-processes features matrix with several steps such as dropping features with zero standard deviation or too many NaN's, imputing nan values to global mean, and z-normalising feature matrix.
 filterFeatureTable: filters features table by specified strain and feature requirements before classification tasks. Uses dropFeats and dropStrains.
 dropFeats
 dropStrains
-appendFeatsToFeatureTable: appends new features from newFeatureTable to the existing featureTable.
