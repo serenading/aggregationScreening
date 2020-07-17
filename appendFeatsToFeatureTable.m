@@ -13,6 +13,7 @@ assert(ismember('filename',newFeatureTable.Properties.VariableNames), 'New featu
 
 %% Load the most recent features table to append to
 featureTable = loadLatestFeatureTable(extractStamp,wormNum);
+n_oldFeatures = size(featureTable,2)-17;
 
 %% Check that the existing table is in the correct format
 featNames = featureTable.Properties.VariableNames;
@@ -30,6 +31,7 @@ assert(numel(unique(featNames))==size(featureTable,2),...
 newFeatureTableFilenames = newFeatureTable.filename; % save filename to append for joining
 newFeatNames = newFeatureTable.Properties.VariableNames;
 both = ismember(newFeatNames,featNames); % get indices for duplicate features
+newFeatureNames = newFeatureTable.Properties.VariableNames(~both); % remove duplicate features
 newFeatureTable = newFeatureTable(:,~both); % remove duplicate features
 
 %% Execute the following only if there are new features to add
@@ -41,13 +43,17 @@ if ~isempty(newFeatureTable)
     n_newFeatures = size(featureTable,2)-17;
     n_featDiff = n_newFeatures - n_oldFeatures;
     assert(n_featDiff == size(newFeatureTable,2)-1,'Incorrect number of features appended.')
+    disp('New features: ')
+    newFeatureNames'
     disp([num2str(n_featDiff) ' new features are appended to featureTable. n_oldFeatures: ' num2str(n_oldFeatures) '; n_newFeatures: ' num2str(n_newFeatures) '.'])
     
     %% save new table as a .csv file
     timestamp=datetime('today','Format','yyyyMMdd');
     if wormNum == 40
+        dirname = '/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/';
         savename = [dirname 'fortyWormFeaturesTable_' extractStamp '_' char(timestamp) '_ft' num2str(n_newFeatures) '.csv'];
     elseif wormNum == 5
+        dirname = '/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/';
         savename = [dirname 'fiveWormFeaturesTable_' extractStamp '_' char(timestamp) '_ft' num2str(n_newFeatures) '.csv'];
     end
     writetable(featureTable,savename)

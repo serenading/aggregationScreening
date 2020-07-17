@@ -18,7 +18,7 @@ wormNum = 40; % 40 or 5.
 extractStamp = '20200519_153722';
 
 % number of expanded features per file, based on the expansion function.
-n_expandedFeats = 115;
+n_expandedFeats = 119;
 
 % some file attributes
 frameRate = 25; % 25 frames per second, read by frameRate = double(h5readatt(strrep(filename,'featuresN','skeletons'),'/plate_worms','expected_fps'));
