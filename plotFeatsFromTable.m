@@ -14,10 +14,10 @@ addpath('auxiliary/')
 extractStamp = '20200519_153722';
 
 % which worm density to plot feature for?
-wormNum = 5; % 40 or 5
+wormNum = 40; % 40 or 5
 
 % choose which feature to plot. Cell containing strings that match feature variable names
-features2plot = {'width_midbody_50th','length_50th','area_50th'};
+features2plot = {'foodEdge_notPhase1_fraction'};
 % 'cluster_size_20_25min_50th','cluster_size_20_25min_90th','cluster_size_40_45min_50th','cluster_size_40_45min_90th'};
 % {'cluster_perdurance_90prc','cluster_perdurance_50prc','cluster_perdurance_10prc'};
 %{'blobSpeed_50th','blobSpeed_90th','blobHu0_50th','blobHu1_50th','blobHu2_50th','blobHu3_50th','blobHu4_50th','blobHu5_50th','blobHu6_50th'};%,'blobSpeed_50th','d_blobSpeed_abs_50th','d_blobSpeed_abs_90th'};
@@ -38,10 +38,10 @@ for featCtr = 1:numel(features2plot)
     %% Boxplot
     if plotboxplot
         % extract group stats
-        [means,strains,n] = grpstats(featureVal,featureTable.strain_name,{'mean','gname','numel'});
+        [means,strains,n] = grpstats(featureVal,featureTable.strain_name,{@median,'gname','numel'});
         % concatenate extracted stats
         stats = table(means,strains,n);
-        % sort stats by means
+        % sort stats by median
         stats_sorted = sortrows(stats);
         
         % go through each strain generate new grouping variables

@@ -48,8 +48,7 @@ featureTable = featureTable(:,n_nonFeatVar+1:end); % get full features matrix
 % retain features as specified
 if ~isempty(feats2keep)
     if strcmp(feats2keep,'Tierpsy_256')
-        feats2keep = readtable('strainsList/Tierpsy_256_short.csv','PreserveVariableNames',true,'ReadVariableNames',false);
-        feats2keep =  table2cell(feats2keep);
+        feats2keep = table2cell(readtable('strainsList/Tierpsy_256_short.csv','PreserveVariableNames',true,'ReadVariableNames',false));
     end
     featureTable = featureTable(:,feats2keep);
 end

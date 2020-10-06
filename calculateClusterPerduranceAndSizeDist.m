@@ -180,6 +180,14 @@ appendFeatsToFeatureTable(newFeatureTable,wormNum,extractStamp);
 
 if plot4Divergent
     
+    % load data
+    if wormNum == 40
+        load('/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/newFeatsToAdd/clusterAnalysis_20200707.mat','perduranceC','clusterSizeC','filenames','strainnames','legendtext_cs');
+    elseif wormNum == 5
+        load('/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/newFeatsToAdd/clusterAnalysis_20200708.mat','perduranceC','clusterSizeC','filenames','strainnames','legendtext_cs');
+    end
+    addpath('auxiliary/')
+
     % initialise
     load('strainsList/divergent.mat','strains');
     clusterPerduranceFig = figure; hold on

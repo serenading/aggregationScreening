@@ -26,13 +26,13 @@ end
 
 % select which features and features to drop or keep
 strains2keep = {}; % Use all strains if cell left empty. {'all'} or {'divergent'} or {'controls'} or {'strain1', 'strain2'}. Cell array containing strains to keep for analysis.
-strains2drop = {}; % {'N2','CB4856','DA609','ECA252','LSJ1'}; Cell array containing strains to drop from analysis.
+strains2drop = {'DA609'}; % {'N2','CB4856','DA609','ECA252','LSJ1'}; Cell array containing strains to drop from analysis.
 feats2keep = {}; % Use all features if left empty. {'Tierpsy_256'} or {'feat1','feat2'}. Cell array containing features to use for analysis.
 feats2drop = {}; % {'path'}; % Cell array containing features to drop from analysis. Partial name of feature allowed.
 
 % select which tasks to perform
-applyKeyFeaturesForClassifierTraining = false; % apply pre-determined key features
-performSequentialFeatureSelection = true;
+applyKeyFeaturesForClassifierTraining = true; % apply pre-determined key features
+performSequentialFeatureSelection = false;
 trainClassifier = true;
 
 %% Optional parameters
@@ -41,6 +41,9 @@ if isempty(strains2keep) || strcmp(strains2keep,'all')
     useRandomStrains = false;
     n_RandomStrains = 13;
 end
+
+% randomly subsample replicates so that all strains have the same number of replicates
+subsampleReps = true;
 
 % SFS parameters. Note: Currently using linear discriminant analysis for sfs. Otherwise redefine classf function.
 if performSequentialFeatureSelection
@@ -90,6 +93,24 @@ if nnz(contains(featureTable.Properties.VariableNames,classVar))~=1
     error('Invalid classVar name. Variable name must exist inside featureTable.')
 end
 
+% subsample replicates to ensure all strains have the same number of reps,
+% because there are more replicates of the divergent panel and of DA609 and
+% this will necessarily impact classification accuracy
+if strcmp(classVar,'strain_name') && subsampleReps
+    dropInd = [];
+    load('strainsList/all.mat')
+    for strainCtr = 1:numel(strains)
+        allInd = find(strcmp(strains{strainCtr},featureTable.strain_name));
+        if numel(allInd)>(crossVal_k+1)
+            dropInd = vertcat(dropInd,datasample(allInd,numel(allInd)-1-crossVal_k,'Replace',false));
+        end
+    end
+    dropRowLogInd = false(1,numel(featureTable.strain_name));
+    dropRowLogInd(dropInd) = true;
+    featureTable = featureTable(~dropRowLogInd,:);
+    disp(['Random sampling applied so that each strain has ' num2str(crossVal_k+1) ' replicates for classification.'])
+end
+
 % if specified, use a randomly sub-selected panel of strains from the full list
 if (isempty(strains2keep) || strcmp(strains2keep,'all')) && useRandomStrains
     load('strainsList/all.mat');
@@ -99,6 +120,37 @@ end
 
 % filter featureTable based on specified strain and features
 [featureTable, classLabels] = filterFeatureTable(featureTable,classVar,n_nonFeatVar,strains2keep,strains2drop,feats2keep,feats2drop);
+
+% apply pre-determined keyFeatures if selected
+if applyKeyFeaturesForClassifierTraining
+%     % top 15 h2
+%     keyFeats = cellstr({'d_blob_quirkiness_w_forward_90th','d_rel_to_body_radial_vel_tail_tip_50th','d_blob_quirkiness_90th',...
+%         'd_blob_quirkiness_w_forward_10th','d_quirkiness_w_forward_90th','d_blob_quirkiness_w_forward_IQR',...
+%         'd_quirkiness_90th','d_rel_to_body_radial_vel_hips_w_forward_IQR','d_blob_hu3_50th',...
+%         'd_rel_to_body_radial_vel_hips_w_forward_10th','d_quirkiness_w_forward_10th','d_rel_to_body_radial_vel_hips_w_forward_90th',...
+%         'd_blob_quirkiness_10th','d_rel_to_body_ang_vel_tail_tip_w_forward_abs_IQR','d_blob_quirkiness_IQR'});
+%     % top 15 H2
+%     keyFeats = cellstr({'eigen_projection_3_w_forward_abs_50th','eigen_projection_2_w_forward_abs_50th','quirkiness_w_forward_90th',...
+%         'd_blob_quirkiness_w_forward_90th','d_path_curvature_midbody_w_forward_abs_50th','quirkiness_w_forward_50th',...
+%         'blob_quirkiness_w_forward_90th','eigen_projection_3_w_forward_abs_10th','eigen_projection_2_w_forward_abs_10th',...
+%         'path_curvature_midbody_w_forward_abs_50th','d_blob_quirkiness_w_forward_10th','blob_quirkiness_w_forward_50th',...
+%         'd_blob_quirkiness_w_forward_IQR','d_path_curvature_tail_w_forward_abs_50th','rel_to_body_radial_vel_hips_w_forward_90th'});
+%     % SFS on 13 unbalanced strains
+%     keyFeats = cellstr({'motion_mode_backward_duration_50th','d_rel_to_head_base_ang_vel_head_tip_w_backward_abs_90th',...
+%         'ang_vel_tail_base_w_backward_abs_90th','d_major_axis_50th','d_width_head_base_w_forward_50th','speed_10th',...
+%         'rel_to_neck_ang_vel_head_tip_w_backward_abs_10th','d_rel_to_neck_radial_vel_head_tip_w_forward_50th',...
+%         'd_ang_vel_midbody_w_backward_abs_50th','rel_to_head_base_radial_vel_head_tip_w_backward_10th',...
+%         'd_rel_to_tail_base_radial_vel_tail_tip_w_forward_10th','d_ang_vel_tail_base_w_backward_abs_IQR',...
+%         'turn_intra_duration_50th','d_length_10th','rel_to_head_base_radial_vel_head_tip_w_backward_90th'});
+% SFS on 12 unbalanced strains
+keyFeats = cellstr({'path_transit_time_head_norm_95th','path_transit_time_body_norm_95th','path_transit_time_midbody_norm_95th',...
+    'path_transit_time_tail_norm_95th','speed_tail_tip_90th','motion_mode_paused_frequency',...
+    'rel_to_body_speed_midbody_w_forward_abs_90th','rel_to_hips_radial_vel_tail_tip_w_forward_10th','rel_to_body_speed_midbody_norm_abs_90th',...
+    'eigen_projection_5_abs_10th','speed_head_tip_90th','path_transit_time_midbody_95th',...
+    'speed_tail_tip_w_forward_90th','d_curvature_neck_norm_abs_90th','d_eigen_projection_2_abs_90th'});
+    % trim down to keyFeats
+    featureTable = featureTable(:,keyFeats);
+end
 
 %% Pre-process features matrix and turn back into table
 % split table into matrix and featNames
@@ -172,15 +224,15 @@ if performSequentialFeatureSelection
         ylabel('CV MCE');
         title('Forward Sequential Feature Selection with cross-validation');
         
-%         % plot of resubstitution MCE values on the training set
-%         % (i.e., without performing cross-validation during the feature selection procedure)
-%         % as a function of the number of top features:
-%         [fsResub,historyResub] = sequentialfs(classf,dataTrain(:,featureIdxSortbyP),grpTrain,...
-%             'cv','resubstitution','nfeatures',n_topFeatsOutput);
-%         figure; plot(1:n_topFeatsOutput, historyCV.Crit,'bo',1:n_topFeatsOutput, historyResub.Crit,'r^');
-%         xlabel('Number of Features');
-%         ylabel('MCE');
-%         legend({[num2str(crossVal_k) '-fold CV MCE'], 'Resubstitution MCE'},'location','NE');
+        %         % plot of resubstitution MCE values on the training set
+        %         % (i.e., without performing cross-validation during the feature selection procedure)
+        %         % as a function of the number of top features:
+        %         [fsResub,historyResub] = sequentialfs(classf,dataTrain(:,featureIdxSortbyP),grpTrain,...
+        %             'cv','resubstitution','nfeatures',n_topFeatsOutput);
+        %         figure; plot(1:n_topFeatsOutput, historyCV.Crit,'bo',1:n_topFeatsOutput, historyResub.Crit,'r^');
+        %         xlabel('Number of Features');
+        %         ylabel('MCE');
+        %         legend({[num2str(crossVal_k) '-fold CV MCE'], 'Resubstitution MCE'},'location','NE');
     end
     
     % Slice out key features from the full featureTable
@@ -206,7 +258,7 @@ if trainClassifier
     testFeatureTable = featureTable(holdoutCVP.test,:);
     
     % Perform model selection using classificationLearner GUI
-    disp('Please use GUI to train model with trainFeatureTable. Use five-fold cross validation, select the best model, and export to workspace.')
+    disp(['Please use GUI to train model with trainFeatureTable. Use ' num2str(crossVal_k) '-fold cross validation, select the best model, and export to workspace.'])
     classificationLearner
     
     % Wait until trained model has been selected and saved
@@ -214,7 +266,7 @@ if trainClassifier
         pause
     end
     
-    % For classifying strains, linear discriminant model and sometimes Ensemble subspace discrimnant model work the best.
+    % For classifying strains,  Ensemble subspace discrimnant and linear discriminant models tend to work the best.
     % For classifying density, coarse tree model works the best but many models perform very well.
     
     %% Classification accuracy on unseen hold-out test set

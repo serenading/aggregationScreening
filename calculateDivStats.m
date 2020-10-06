@@ -12,7 +12,7 @@ addpath('auxiliary/')
 whichHD = 0; % Scalar. Specify 1 or 2. Specify 0 if both 1 and 2 are plugged in.
 
 % which worm density?
-wormNum = 40; % 40 or 5. 
+wormNum = 5; % 40 or 5. 
 
 % set which feature extraction timestamp to use.
 extractStamp = '20200519_153722';
@@ -68,11 +68,13 @@ newFeatureTable = array2table(divStats);
 newFeatureTable.Properties.VariableNames = names;
 newFeatureTable.filename = filenames;
 
-%% Save new featureTable with today's timestamp to append to existing featureTable later
+%% Save new featureTable with today's timestamp
 timestamp=datetime('today','Format','yyyyMMdd');
 if wormNum ==40
     save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fortyWorm/newFeatsToAdd/fortyWormFeaturesTable_' extractStamp '_new_' char(timestamp) '_divstats.mat'],'newFeatureTable')
 elseif wormNum ==5
     save(['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/newFeatsToAdd/fiveWormFeaturesTable_' extractStamp '_new_' char(timestamp) '_divstats.mat'],'newFeatureTable')
 end
+
+%% Append to existing featureTable
 appendFeatsToFeatureTable(newFeatureTable,wormNum,extractStamp);

@@ -5,7 +5,7 @@ close all
 % Author: @serenading. July 2020
 
 %% Specify which dataset
-wormNum = 40;
+wormNum = 5;
 extractStamp = '20200519_153722';
 
 %% load
@@ -42,7 +42,7 @@ for strainCtr = 1:numel(uniqueStrains)
     strainLogInd = strcmp(featureTable.strain_name,strain);
     
     % all worm category
-    wormFractions = [featureTable.swFraction(strainLogInd),featureTable.pausedMwFraction(strainLogInd),featureTable.clusterFraction(strainLogInd),featureTable.tempBlobFraction(strainLogInd)];
+    wormFractions = [featureTable.sw_fraction(strainLogInd),featureTable.pausedMw_fraction(strainLogInd),featureTable.cluster_fraction(strainLogInd),featureTable.tempBlob_fraction(strainLogInd)];
     wormFractionsMean(strainCtr,:) = mean(wormFractions,1);
     wormFractionsSE(strainCtr,:) = std(wormFractions)/sqrt(nnz(strainLogInd));
         
@@ -63,17 +63,17 @@ for strainCtr = 1:numel(uniqueStrains)
     
     % single worm food region 
     swFoodRegionFractions = [featureTable.sw_onFood_fraction(strainLogInd),featureTable.sw_foodEdge_fraction(strainLogInd),featureTable.sw_offFood_fraction(strainLogInd)]...
-        ./featureTable.swFraction(strainLogInd);
+        ./featureTable.sw_fraction(strainLogInd);
     swFoodRegionFractionsMean(strainCtr,:) = mean(swFoodRegionFractions,1);
     
     % paused multiworm food region
     pausedMwFoodRegionFractions = [featureTable.pausedMw_onFood_fraction(strainLogInd),featureTable.pausedMw_foodEdge_fraction(strainLogInd),featureTable.pausedMw_offFood_fraction(strainLogInd)]...
-        ./featureTable.pausedMwFraction(strainLogInd);
+        ./featureTable.pausedMw_fraction(strainLogInd);
     pausedMwFoodRegionFractionsMean(strainCtr,:) = mean(pausedMwFoodRegionFractions,1);
     
     % cluster food region
     clusterFoodRegionFractions = [featureTable.cluster_onFood_fraction(strainLogInd),featureTable.cluster_foodEdge_fraction(strainLogInd),featureTable.cluster_offFood_fraction(strainLogInd)]...
-        ./featureTable.clusterFraction(strainLogInd);
+        ./featureTable.cluster_fraction(strainLogInd);
     clusterFoodRegionFractionsMean(strainCtr,:) = mean(clusterFoodRegionFractions,1);
     
     % phase 1 food region

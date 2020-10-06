@@ -7,14 +7,15 @@ addpath('auxiliary/')
 
 % author: serenading. June 2020.
 
-% TODO: add normalised blob speed calculation after speed calculation and expand. 
+% TODO: expand d_blob features; calculate and expand normalised blob features. 
+% TODO: replace all d_blobSpeeds values. 
 % TODO: automate feature expansion and complete feature expansion. combine
 % the two expansion scripts now. 
 
 %% Specify analysis parameters
 
 % which HD is plugged in right now?
-whichHD = 1; % Scalar. Specify 1 or 2. Specify 0 if both 1 and 2 are plugged in.
+whichHD = 0; % Scalar. Specify 1 or 2. Specify 0 if both 1 and 2 are plugged in.
 
 % which worm density?
 wormNum = 40; % 40 or 5.
@@ -64,8 +65,12 @@ for fileCtr = 1:numel(fileInd)
     [onFoodLogInd,foodEdgeLogInd,offFoodLogInd] = getFoodRegion(tsFeatures);
     
     %% Calculate base features to expand and add to the main featuresTable
-    [blobSpeed, d_blobSpeed, d_blobSpeed_abs] = calculateBlobSpeed(trajData, blobFeats,frameRate); % units in microns per second
-    features2add = {blobSpeed, d_blobSpeed, d_blobSpeed_abs,blobFeats.area,blobFeats.perimeter,blobFeats.compactness,blobFeats.solidity,blobFeats.quirkiness,blobFeats.box_length,blobFeats.box_width,blobFeats.box_orientation,blobFeats.hu0,blobFeats.hu1,blobFeats.hu2,blobFeats.hu3,blobFeats.hu4,blobFeats.hu5,blobFeats.hu6};
+    [blobSpeeds, d_blobSpeeds, d_blobSpeeds_abs, blobSpeeds_norm, d_blobSpeeds_norm, d_blobSpeeds_norm_abs] = ...
+        calculateBlobSpeed(trajData,blobFeats,tsFeatures,frameRate); % units in microns per second
+    features2add = {blobSpeed, d_blobSpeed, d_blobSpeed_abs, blobSpeeds_norm, d_blobSpeeds_norm, d_blobSpeeds_norm_abs,...
+        blobFeats.area,blobFeats.perimeter,blobFeats.compactness,blobFeats.solidity,blobFeats.quirkiness,...
+        blobFeats.box_length,blobFeats.box_width,blobFeats.box_orientation,...
+        blobFeats.hu0,blobFeats.hu1,blobFeats.hu2,blobFeats.hu3,blobFeats.hu4,blobFeats.hu5,blobFeats.hu6};
     assert(numel(features2add) == numel(featureBaseNames),'The number of calculated base features does not match the number of feature base names.');
     
     %% Expand features
@@ -103,7 +108,7 @@ appendFeatsToFeatureTable(newFeatureTable,wormNum,extractStamp);
 %% LOCAL FUNCTION
 %%%%%%%%%%%%%%%%%%%%%%
 
-function [blobSpeeds, d_blobSpeeds, d_blobSpeeds_abs] = calculateBlobSpeed(trajData, blobFeats,frameRate,speedSmoothFactor,dT)
+function [blobSpeeds, d_blobSpeeds, d_blobSpeeds_abs, blobSpeeds_norm, d_blobSpeeds_norm, d_blobSpeeds_norm_abs] = calculateBlobSpeed(trajData, blobFeats,tsFeatures,frameRate,speedSmoothFactor,dT)
 
 %% function calculates blobSpeed (smoothed over 1 second unless otherwise specified) 
 % and d_blobSpeed (over dT window of 1/3 second unless otherwise specified, calculated from smoothed speeds)
@@ -117,6 +122,9 @@ function [blobSpeeds, d_blobSpeeds, d_blobSpeeds_abs] = calculateBlobSpeed(trajD
 % blobSpeeds: unsigned speed (microns/s)
 % d_blobSpeeds: signed acceleration (microns/s^2)
 % d_blobSpeeds_abs: absolute value of acceleration (microns/s^2)
+% blobSpeeds_norm: unsigned speed normalised by worm lengths (microns/s/mm)
+% d_blobSpeeds_norm: signed acceleration normalised by worm lengths
+% d_blobSpeeds_norm_abs: absolute value of normalised acceleration
 
 % check number of inputs and use default values if necessary
 if nargin<5
@@ -132,6 +140,8 @@ end
 % preallocate matrix to hold speed values
 blobSpeeds = NaN(size(blobFeats.coord_x));
 d_blobSpeeds = NaN(size(blobFeats.coord_x));
+blobSpeeds_norm = NaN(size(blobFeats.coord_x));
+d_blobSpeeds_norm = NaN(size(blobFeats.coord_x));
 n_frames_speedsmooth = frameRate*speedSmoothFactor; % number of frames to smooth speed over
 n_frames_dT = floor(dT*frameRate); % number of frames to calculate d_speed over
 
@@ -153,24 +163,35 @@ for blobCtr = 1:numel(uniqueBlobs)
         dy = blob_yAfter-blob_yBefore;
         blobSpeed = sqrt(dx.^2+dy.^2);
         blobSpeed = blobSpeed((n_frames_speedsmooth+1):end);
+        blobSpeed = blobSpeed/speedSmoothFactor; % convert blobSpeed units into microns/second
+        % normalise blob speed with worm length
+        lengths = tsFeatures.length(logical(trajData.was_skeletonized)); % in microns
+        medianLength = nanmedian(lengths)/1000; % median length in mm
+        blobSpeed_norm = blobSpeed/medianLength;
         % calculate blob acceleration
         speedsBefore = vertcat(NaN(n_frames_dT,1),blobSpeed);
         speedsAfter = vertcat(blobSpeed,NaN(n_frames_dT,1));
         d_blobSpeed = speedsAfter-speedsBefore;
         d_blobSpeed = d_blobSpeed((n_frames_dT+1):end);
+        d_blobSpeed = d_blobSpeed/dT; % convert d_blobSpeed units into microns/second^2
+        % calculate blob acceleration based on normalised speed
+        speedsBefore_norm = speedsBefore/medianLength;
+        speedsAfter_norm = speedsAfter/medianLength;
+        d_blobSpeed_norm = speedsAfter_norm - speedsBefore_norm;
+        d_blobSpeed_norm = d_blobSpeed_norm((n_frames_dT+1):end);
+        d_blobSpeed_norm = d_blobSpeed_norm/dT;
         % check that indices for this blob is consecutive and that blobSpeed and d_blobSpeed are the same lengths
-        assert(sum(diff(find(thisBlobLogInd))) == numel(diff(find(thisBlobLogInd))),'Indices for this blob are not consecutive.')
+        % (this step is slow, and previous running of the script shows the indices are consecutive for all files concerned)
+        % assert(sum(diff(find(thisBlobLogInd))) == numel(diff(find(thisBlobLogInd))),'Indices for this blob are not consecutive.')
         assert(numel(d_blobSpeed) == numel(blobSpeed));
         % add blob speed to blobSpeeds matrix
         blobSpeeds(thisBlobLogInd) = blobSpeed;
         d_blobSpeeds(thisBlobLogInd) = d_blobSpeed;
+        blobSpeeds_norm = blobSpeed_norm;
+        d_blobSpeeds_norm(thisBlobLogInd) = d_blobSpeed_norm;
     end
 end
-
-% convert blobSpeeds units into microns/second
-blobSpeeds = blobSpeeds/speedSmoothFactor;
-% convert d_blobSpeeds units into microns/second^2
-d_blobSpeeds = d_blobSpeeds/dT;
 % get absolute value of d_blobSpeeds
 d_blobSpeeds_abs = abs(d_blobSpeeds);
+d_blobSpeeds_norm_abs = abs(d_blobSpeeds_norm);
 end
