@@ -7,7 +7,7 @@ close all
 
 %% Set parameters
 % what's the path to the heritability tsv file?
-fpath = '/Users/sding/OneDrive - Imperial College London/aggScreening/source/heritability_overlap_20201001.tsv';
+fpath = '/Users/sding/OneDrive - Imperial College London/aggScreening/source/AndersenLab/heritability_overlap_20201001.tsv';
 % display top features or not?
 dispFeats = true;
 % how many top features to display?

@@ -9,15 +9,21 @@
 clear 
 close all
 
-override = false;
+override = true;
 
 %% Import features data and combine with metadata
 
 % set which feature extraction timestamp to use
-featExtractTimestamp = '20200519_153722'; %'20200519_153722' (feat 3016) or '20200511_162714' (feat 3016 windows) or '20191024_122847' (feat 4548)
+featExtractTimestamp = '20200630_171156'; % '20201021_114135' (augmented feat 3016) or '20200630_171156' (augmented feat 3016 windows) or '20200519_153722' (feat 3016) or '20200511_162714' (feat 3016 windows) or '20191024_122847' (feat 4548)
+
 if strcmp(featExtractTimestamp,'20200511_162714')
     featExtractWindow = '2'; %'0','1','2'
     extractStamp = [featExtractTimestamp '_window_' featExtractWindow];
+elseif strcmp(featExtractTimestamp,'20201021_114135')
+    extractStamp = ['augmented_' featExtractTimestamp];
+elseif strcmp(featExtractTimestamp,'20200630_171156')
+    featExtractWindow = '4'; %'0','1','2','3','4'
+    extractStamp = ['augmented_' featExtractTimestamp '_window_' featExtractWindow];
 else
     extractStamp = featExtractTimestamp;
 end
@@ -84,7 +90,7 @@ fiveWormFeatureTable = sortrows(fiveWormFeatureTable,strainNameColIdx);
 
 % export features table
 if override
-    % writetable(fiveWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' extractStamp '.csv']);
+    writetable(fiveWormFeatureTable,['/Users/sding/OneDrive - Imperial College London/aggScreening/results/fiveWorm/fiveWormFeaturesTable_' extractStamp '.csv']);
 end
 
 %% Get forty worm features table with features

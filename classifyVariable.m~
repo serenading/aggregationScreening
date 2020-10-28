@@ -40,7 +40,7 @@ feats2drop = {}; % {'path'}; % Cell array containing features to drop from analy
 
 % select which tasks to perform
 applyKeyFeaturesForClassifierTraining = false; % apply pre-determined key features
-performSequentialFeatureSelection = false;
+performSequentialFeatureSelection = true;
 trainClassifier = true;
 
 %% Optional parameters
@@ -222,10 +222,10 @@ if performSequentialFeatureSelection
     [~,featureIdxSortbyP] = sort(p,2);
     
     % define function for sfs. Linear discriminant analysis currently but should probably change for favoured model.
-%   % TODO:  % check out fitcensemble for subspace discriminant model.
-%     Mdl = fitcensemble(xtrain,ytrain,'Method','subspace'); % trained object using subspace discriminant model.
-%     classf = @(xtrain,ytrain,xtest,ytest) ...
-%         sum(~strcmp(ytest,Mdl.predictFcn(xtest)));
+    % TODO:  % check out fitcensemble for subspace discriminant model.
+    Mdl = fitcensemble(xtrain,ytrain,'Method','subspace'); % trained object using subspace discriminant model.
+    classf = @(xtrain,ytrain,xtest,ytest) ...
+        sum(~strcmp(ytest,Mdl.predictFcn(xtest)));
     
     classf = @(xtrain,ytrain,xtest,ytest) ...
         sum(~strcmp(ytest,classify(xtest,xtrain,ytrain,'linear')));
