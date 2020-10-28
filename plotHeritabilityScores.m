@@ -11,7 +11,7 @@ fpath = '/Users/sding/OneDrive - Imperial College London/aggScreening/source/And
 % display top features or not?
 dispFeats = true;
 % how many top features to display?
-n_feats_display = 15;
+n_feats_display = 30;
 
 %% Load scores
 scores = tdfread(fpath);

@@ -1,5 +1,3 @@
-%[sweptStrains, notSweptStrains] = getSweptStrains(method)
-
 %% Script makes a list of swept vs. non-swept strains from the imaging dataset in order to e.g. run classification separately on those.
 % method: 'conservative' or 'liberal'. 'conservative' classes a strain as
 % swept if all four chromosomes (I, IV, V or X) are swept (>=30% of the
@@ -20,7 +18,7 @@ if strcmp(method,'conservative')
 elseif strcmp(method,'liberal')
     sweptMasterLogInd = hapshares.swept_chroms>=1;
 else
-    warning('Please specify method as conservative or liberal')
+    warning('Please specify method as conservative or liberal.')
 end
 % find all swept strains from the Andersen lab list
 sweptStrains_master = cellstr(hapshares.isotype(sweptMasterLogInd,:));

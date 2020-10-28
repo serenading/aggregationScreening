@@ -27,6 +27,18 @@ elseif strcmp(strains2keep,'divergent')
 elseif strcmp(strains2keep,'controls')
     load('strainsList/controls.mat','strains');
     strains2keep = strains;
+elseif strcmp(strains2keep,'swept_liberal')
+    load('strainsList/swept_strains_liberal.mat','sweptStrains')
+    strains2keep = sweptStrains;
+elseif strcmp(strains2keep,'nonSwept_liberal')
+    load('strainsList/swept_strains_liberal.mat','nonSweptStrains')
+    strains2keep = nonSweptStrains;
+elseif strcmp(strains2keep,'swept_conservative')
+    load('strainsList/swept_strains_conservative.mat','sweptStrains')
+    strains2keep = sweptStrains;
+elseif strcmp(strains2keep,'nonSwept_conservative')
+    load('strainsList/swept_strains_conservative.mat','nonSweptStrains')
+    strains2keep = nonSweptStrains;
 end
 strainLogInd = ismember(featureTable.strain_name,strains2keep);
 featureTable = featureTable(strainLogInd,:);
