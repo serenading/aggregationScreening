@@ -10,11 +10,11 @@ close all
 
 %% Specify analysis parameters
 
-% set which variable to classify for
+% Set which variable to classify for
 classVar = 'strain_name'; % 'wormNum' or 'strain_name'. Must be a variable field of the featureTable.
 wormNum = 5; % only taken into account if classVar is 'strain_name'.
 
-% set which feature extraction timestamp to use
+% Set which feature extraction timestamp to use
 featExtractTimestamp = '20200630_171156'; %'20201021_114135' (augmented feat 3016),'20200630_171156' (augmented feat 3016 windows),'20200519_153722' (feat 3016),'20200511_162714' (feat 3016 three windows) or '20191024_122847' (feat 4548)
 if strcmp(featExtractTimestamp,'20200511_162714')
     featExtractWindow = '1'; %'0','1','2'. Windows: window0: 0-15 min, window1: 15-30 min, window2: 30-45 min.
@@ -32,30 +32,31 @@ else
     n_nonFeatVar = 17;
 end
 
-% select which features and features to drop or keep
+% Select which features and features to drop or keep
 strains2keep = {}; % Use all strains if cell left empty. {'all'} or {'divergent'} or {'controls'} or {'strain1', 'strain2'} or {'swept_liberal'} or {'nonSwept_liberal'} or {'swept_conservative'} or {'nonSwept_conservative'}. Cell array containing strains to keep for analysis.
 strains2drop = {'DA609'}; % {'N2','CB4856','DA609','ECA252','LSJ1'}; Cell array containing strains to drop from analysis.
 feats2keep = {}; % Use all features if left empty. {'Tierpsy_256'} or {'feat1','feat2'}. Cell array containing features to use for analysis.
 feats2drop = {}; % {'path'}; % Cell array containing features to drop from analysis. Partial name of feature allowed.
 
-% select which tasks to perform
-applyKeyFeaturesForClassifierTraining = true; % apply pre-determined key features
-performSequentialFeatureSelection = false;
+% Select which tasks to perform
+applyKeyFeaturesForClassifierTraining = false; % apply pre-determined key features
+performSequentialFeatureSelection = true;
 trainClassifier = true;
 
 %% Optional parameters
-% randomly sub-select a number of strains from the full panel
+
+% Randomly sub-select a number of strains from the full panel
 if isempty(strains2keep) || strcmp(strains2keep,'all')
     useRandomStrains = false;
     n_RandomStrains = 13;
 end
 
-% randomly subsample replicates so that all strains have the same number of replicates
+% Randomly subsample replicates so that all strains have the same number of replicates
 subsampleReps = true;
 
 % SFS parameters. Note: Currently using linear discriminant analysis for sfs. Otherwise redefine classf function.
 if performSequentialFeatureSelection
-    % generate additional diagnostic plots for SFS
+    % Generate additional diagnostic plots for SFS
     plotSFS = true;
     if isempty(feats2keep)
         % Use top n sorted features with lowest p-values to make sfs run faster.
@@ -74,7 +75,7 @@ if performSequentialFeatureSelection
     end
 end
 
-% classification parameters. How many replicates to use for hold out and cross validation
+% Classification parameters. How many replicates to use for hold out and cross validation
 if strcmp(classVar,'strain_name') && wormNum ==40
     holdoutRatio = 1/5; % 1 out of (typically) 5 replicates held out
     crossVal_k = 4;
@@ -82,15 +83,17 @@ else
     holdoutRatio = 0.25;
     crossVal_k = 5;
     if strcmp(classVar,'strain_name') && wormNum ==5
-        if ~strcmp(featExtractTimestamp,'20201021_114135') & ~strcmp(featExtractTimestamp,'20200630_171156') % if not using augmented data
-            holdoutRatio = 1/3; % 1 out of (typically) 3 replicates held out
-            crossVal_k = 2;
+        holdoutRatio = 1/3; % 1 out of (typically) 3 replicates held out
+        crossVal_k = 2;
+        if strcmp(featExtractTimestamp,'20201021_114135') & strcmp(featExtractTimestamp,'20200630_171156') % if using augmented data
+            crossVal_k = 5;
         end
     end
 end
 
 %% Load and process featureTable
-% load featuresTable and set classification variables according to the task
+
+% Load featuresTable and set classification variables according to the task
 % 40 worm manual features for strain classification
 if strcmp(classVar,'strain_name') && wormNum ==40
     % load 40 worm manually extracted features
@@ -105,108 +108,105 @@ else
     end
 end
 
-% check that the specified variable name exists
+% Load the full list of strains
+load('strainsList/all.mat');
+
+% Check that the specified variable name exists
 if nnz(contains(featureTable.Properties.VariableNames,classVar))~=1
     error('Invalid classVar name. Variable name must exist inside featureTable.')
 end
 
-% subsample replicates to ensure all strains have the same number of reps,
-% because there are more replicates of the divergent panel and of DA609 and
-% this will necessarily impact classification accuracy
+% If specified, subsample replicates to ensure all strains have the same number of reps
 if strcmp(classVar,'strain_name') && subsampleReps
-    dropInd = [];
-    load('strainsList/all.mat')
-    for strainCtr = 1:numel(strains)
-        allInd = find(strcmp(strains{strainCtr},featureTable.strain_name));
-        if strcmp(featExtractTimestamp,'20201021_114135') | strcmp(featExtractTimestamp,'20200630_171156')
-            n_reps2keep = 3*5; % 3 actual replicates x 5 fold augmentation for augmented data
-        else
-            n_reps2keep = crossVal_k+1;
-        end
-        if numel(allInd)>n_reps2keep
-            dropInd = vertcat(dropInd,datasample(allInd,numel(allInd)-n_reps2keep,'Replace',false));
-        end
-    end
-    dropRowLogInd = false(1,numel(featureTable.strain_name));
-    dropRowLogInd(dropInd) = true;
-    featureTable = featureTable(~dropRowLogInd,:);
-    disp(['Random sampling applied so that each strain has ' num2str(n_reps2keep) ' replicates for classification.'])
+    featureTable = balanceStrainReps(featureTable,featExtractTimestamp,crossVal_k,strains);
 end
 
-% if specified, use a randomly sub-selected panel of strains from the full list
+% If specified, use a randomly sub-selected panel of strains from the full list
 if (isempty(strains2keep) || strcmp(strains2keep,'all')) && useRandomStrains
-    load('strainsList/all.mat');
     randInd = randperm(numel(strains),n_RandomStrains);
     strains2keep = strains(randInd);
 end
 
-% filter featureTable based on specified strain and features
+% Filter featureTable based on specified strain and features
 [featureTable, classLabels] = filterFeatureTable(featureTable,classVar,n_nonFeatVar,strains2keep,strains2drop,feats2keep,feats2drop);
 
-% apply pre-determined keyFeatures if selected
+% Apply pre-determined keyFeatures if selected
 if applyKeyFeaturesForClassifierTraining
-%     % top 30 h2
-%     keyFeats = cellstr({'d_blob_quirkiness_w_forward_90th','d_rel_to_body_radial_vel_tail_tip_50th','d_blob_quirkiness_90th',...
-%         'd_blob_quirkiness_w_forward_10th','d_quirkiness_w_forward_90th','d_blob_quirkiness_w_forward_IQR',...
-%         'd_quirkiness_90th','d_rel_to_body_radial_vel_hips_w_forward_IQR','d_blob_hu3_50th',...
-%         'd_rel_to_body_radial_vel_hips_w_forward_10th','d_quirkiness_w_forward_10th','d_rel_to_body_radial_vel_hips_w_forward_90th',...
-%         'd_blob_quirkiness_10th','d_rel_to_body_ang_vel_tail_tip_w_forward_abs_IQR','d_blob_quirkiness_IQR',...
-%         'd_rel_to_body_radial_vel_tail_tip_w_forward_10th','d_rel_to_body_ang_vel_tail_tip_w_forward_abs_90th','d_rel_to_body_radial_vel_hips_10th',...
-%         'd_rel_to_body_radial_vel_hips_90th','rel_to_body_ang_vel_tail_tip_w_forward_abs_IQR','d_rel_to_body_radial_vel_tail_tip_w_forward_90th',...
-%         'blob_hu4_w_forward_50th','d_rel_to_body_radial_vel_tail_tip_w_forward_IQR','d_rel_to_body_radial_vel_hips_IQR',...
-%         'd_rel_to_body_radial_vel_tail_tip_90th','d_rel_to_body_radial_vel_neck_w_forward_90th','d_rel_to_body_radial_vel_tail_tip_10th',...
-%         'd_rel_to_body_radial_vel_neck_w_forward_IQR','rel_to_body_ang_vel_tail_tip_w_forward_abs_90th','d_quirkiness_10th',...
-%         });
-
-%     % top 30 H2
-%     keyFeats = cellstr({'eigen_projection_3_w_forward_abs_50th','eigen_projection_2_w_forward_abs_50th','quirkiness_w_forward_90th',...
-%         'd_blob_quirkiness_w_forward_90th','d_path_curvature_midbody_w_forward_abs_50th','quirkiness_w_forward_50th',...
-%         'blob_quirkiness_w_forward_90th','eigen_projection_3_w_forward_abs_10th','eigen_projection_2_w_forward_abs_10th',...
-%         'path_curvature_midbody_w_forward_abs_50th','d_blob_quirkiness_w_forward_10th','blob_quirkiness_w_forward_50th',...
-%         'd_blob_quirkiness_w_forward_IQR','d_path_curvature_tail_w_forward_abs_50th','rel_to_body_radial_vel_hips_w_forward_90th',...
-%         'rel_to_body_radial_vel_tail_tip_w_forward_10th','d_blob_quirkiness_90th','rel_to_hips_radial_vel_tail_tip_w_forward_90th',...
-%         'rel_to_body_radial_vel_hips_w_forward_10th','eigen_projection_2_w_backward_abs_50th','eigen_projection_3_w_forward_abs_90th',...
-%         'rel_to_body_radial_vel_neck_w_forward_10th','rel_to_hips_radial_vel_tail_tip_w_forward_10th','rel_to_body_radial_vel_tail_tip_w_forward_90th',...
-%         'd_quirkiness_w_forward_90th','rel_to_body_speed_midbody_w_forward_abs_90th','rel_to_body_radial_vel_neck_w_forward_90th',...
-%         'rel_to_body_ang_vel_head_tip_w_forward_abs_IQR','d_quirkiness_w_forward_10th','rel_to_body_ang_vel_head_tip_abs_IQR',...
-%         });
-
-%     % SFS on 13 unbalanced strains
-%     keyFeats = cellstr({'motion_mode_backward_duration_50th','d_rel_to_head_base_ang_vel_head_tip_w_backward_abs_90th',...
-%         'ang_vel_tail_base_w_backward_abs_90th','d_major_axis_50th','d_width_head_base_w_forward_50th','speed_10th',...
-%         'rel_to_neck_ang_vel_head_tip_w_backward_abs_10th','d_rel_to_neck_radial_vel_head_tip_w_forward_50th',...
-%         'd_ang_vel_midbody_w_backward_abs_50th','rel_to_head_base_radial_vel_head_tip_w_backward_10th',...
-%         'd_rel_to_tail_base_radial_vel_tail_tip_w_forward_10th','d_ang_vel_tail_base_w_backward_abs_IQR',...
-%         'turn_intra_duration_50th','d_length_10th','rel_to_head_base_radial_vel_head_tip_w_backward_90th'});
-% SFS on 12 unbalanced strains
-% keyFeats = cellstr({'path_transit_time_head_norm_95th','path_transit_time_body_norm_95th','path_transit_time_midbody_norm_95th',...
-%     'path_transit_time_tail_norm_95th','speed_tail_tip_90th','motion_mode_paused_frequency',...
-%     'rel_to_body_speed_midbody_w_forward_abs_90th','rel_to_hips_radial_vel_tail_tip_w_forward_10th','rel_to_body_speed_midbody_norm_abs_90th',...
-%     'eigen_projection_5_abs_10th','speed_head_tip_90th','path_transit_time_midbody_95th',...
-%     'speed_tail_tip_w_forward_90th','d_curvature_neck_norm_abs_90th','d_eigen_projection_2_abs_90th'});
+    %     % top 30 h2
+    %     keyFeats = cellstr({'d_blob_quirkiness_w_forward_90th','d_rel_to_body_radial_vel_tail_tip_50th','d_blob_quirkiness_90th',...
+    %         'd_blob_quirkiness_w_forward_10th','d_quirkiness_w_forward_90th','d_blob_quirkiness_w_forward_IQR',...
+    %         'd_quirkiness_90th','d_rel_to_body_radial_vel_hips_w_forward_IQR','d_blob_hu3_50th',...
+    %         'd_rel_to_body_radial_vel_hips_w_forward_10th','d_quirkiness_w_forward_10th','d_rel_to_body_radial_vel_hips_w_forward_90th',...
+    %         'd_blob_quirkiness_10th','d_rel_to_body_ang_vel_tail_tip_w_forward_abs_IQR','d_blob_quirkiness_IQR',...
+    %         'd_rel_to_body_radial_vel_tail_tip_w_forward_10th','d_rel_to_body_ang_vel_tail_tip_w_forward_abs_90th','d_rel_to_body_radial_vel_hips_10th',...
+    %         'd_rel_to_body_radial_vel_hips_90th','rel_to_body_ang_vel_tail_tip_w_forward_abs_IQR','d_rel_to_body_radial_vel_tail_tip_w_forward_90th',...
+    %         'blob_hu4_w_forward_50th','d_rel_to_body_radial_vel_tail_tip_w_forward_IQR','d_rel_to_body_radial_vel_hips_IQR',...
+    %         'd_rel_to_body_radial_vel_tail_tip_90th','d_rel_to_body_radial_vel_neck_w_forward_90th','d_rel_to_body_radial_vel_tail_tip_10th',...
+    %         'd_rel_to_body_radial_vel_neck_w_forward_IQR','rel_to_body_ang_vel_tail_tip_w_forward_abs_90th','d_quirkiness_10th',...
+    %         });
+    
+    %     % top 30 H2
+    %     keyFeats = cellstr({'eigen_projection_3_w_forward_abs_50th','eigen_projection_2_w_forward_abs_50th','quirkiness_w_forward_90th',...
+    %         'd_blob_quirkiness_w_forward_90th','d_path_curvature_midbody_w_forward_abs_50th','quirkiness_w_forward_50th',...
+    %         'blob_quirkiness_w_forward_90th','eigen_projection_3_w_forward_abs_10th','eigen_projection_2_w_forward_abs_10th',...
+    %         'path_curvature_midbody_w_forward_abs_50th','d_blob_quirkiness_w_forward_10th','blob_quirkiness_w_forward_50th',...
+    %         'd_blob_quirkiness_w_forward_IQR','d_path_curvature_tail_w_forward_abs_50th','rel_to_body_radial_vel_hips_w_forward_90th',...
+    %         'rel_to_body_radial_vel_tail_tip_w_forward_10th','d_blob_quirkiness_90th','rel_to_hips_radial_vel_tail_tip_w_forward_90th',...
+    %         'rel_to_body_radial_vel_hips_w_forward_10th','eigen_projection_2_w_backward_abs_50th','eigen_projection_3_w_forward_abs_90th',...
+    %         'rel_to_body_radial_vel_neck_w_forward_10th','rel_to_hips_radial_vel_tail_tip_w_forward_10th','rel_to_body_radial_vel_tail_tip_w_forward_90th',...
+    %         'd_quirkiness_w_forward_90th','rel_to_body_speed_midbody_w_forward_abs_90th','rel_to_body_radial_vel_neck_w_forward_90th',...
+    %         'rel_to_body_ang_vel_head_tip_w_forward_abs_IQR','d_quirkiness_w_forward_10th','rel_to_body_ang_vel_head_tip_abs_IQR',...
+    %         });
+    
+    %     % SFS on 13 unbalanced strains
+    %     keyFeats = cellstr({'motion_mode_backward_duration_50th','d_rel_to_head_base_ang_vel_head_tip_w_backward_abs_90th',...
+    %         'ang_vel_tail_base_w_backward_abs_90th','d_major_axis_50th','d_width_head_base_w_forward_50th','speed_10th',...
+    %         'rel_to_neck_ang_vel_head_tip_w_backward_abs_10th','d_rel_to_neck_radial_vel_head_tip_w_forward_50th',...
+    %         'd_ang_vel_midbody_w_backward_abs_50th','rel_to_head_base_radial_vel_head_tip_w_backward_10th',...
+    %         'd_rel_to_tail_base_radial_vel_tail_tip_w_forward_10th','d_ang_vel_tail_base_w_backward_abs_IQR',...
+    %         'turn_intra_duration_50th','d_length_10th','rel_to_head_base_radial_vel_head_tip_w_backward_90th'});
+    %
+    % SFS on 12 unbalanced strains
+    % keyFeats = cellstr({'path_transit_time_head_norm_95th','path_transit_time_body_norm_95th','path_transit_time_midbody_norm_95th',...
+    %     'path_transit_time_tail_norm_95th','speed_tail_tip_90th','motion_mode_paused_frequency',...
+    %     'rel_to_body_speed_midbody_w_forward_abs_90th','rel_to_hips_radial_vel_tail_tip_w_forward_10th','rel_to_body_speed_midbody_norm_abs_90th',...
+    %     'eigen_projection_5_abs_10th','speed_head_tip_90th','path_transit_time_midbody_95th',...
+    %     'speed_tail_tip_w_forward_90th','d_curvature_neck_norm_abs_90th','d_eigen_projection_2_abs_90th'});
+    %
     % trim down to keyFeats
     featureTable = featureTable(:,keyFeats);
 end
 
 %% Pre-process features matrix and turn back into table
-% split table into matrix and featNames
+
+% Split table into matrix and featNames
 featureMat = table2array(featureTable);
 featNames = featureTable.Properties.VariableNames;
-% preprocess feature matrix: drop zero standard deviation, NaN's, z-normalise, etc.
+% Preprocess feature matrix: drop zero standard deviation, NaN's, z-normalise, etc.
 [featureMat,dropLogInd] = preprocessFeatMat(featureMat);
 featNames = featNames(~dropLogInd);
-% put the table back together
+% Put the table back together
 featureTable = array2table(featureMat,'VariableNames',featNames);
 
 %% Holdout partition to separate training and test set
-holdoutCVP = cvpartition(classLabels,'holdout',holdoutRatio);
+
+% Generate test/training partition
+if strcmp(featExtractTimestamp,'20201021_114135') | strcmp(featExtractTimestamp,'20200630_171156')
+    % If using augmented data, make sure one entire replicate is held out so it is not at all seen in training. 
+    holdoutCVP = cvpartition_augmented(classLabels);
+else 
+    % If not using augmented data, use cvpartition to divide up data into training and test sets
+    holdoutCVP = cvpartition(classLabels,'holdout',holdoutRatio);
+end
+
+% Extract training and test datasets
 dataTrain = featureMat(holdoutCVP.training,:);
 grpTrain = classLabels(holdoutCVP.training,:);
 dataTest = featureMat(holdoutCVP.test,:);
 grpTest = classLabels(holdoutCVP.test,:);
 
 %% Sequential feature selection
-% following instructions from https://uk.mathworks.com/help/stats/examples/selecting-features-for-classifying-high-dimensional-data.html
+% Following instructions from https://uk.mathworks.com/help/stats/examples/selecting-features-for-classifying-high-dimensional-data.html
 
 if performSequentialFeatureSelection
     
@@ -218,7 +218,7 @@ if performSequentialFeatureSelection
         dataTrainG2 = dataTrain(grpTrainInd==2,:);
         [~,p] = ttest2(dataTrainG1,dataTrainG2,'Vartype','unequal');
     elseif strcmp(classVar,'strain_name')
-        % one-way anova for multiple class labels: strain names
+        % One-way anova for multiple class labels: strain names
         p = NaN(1,size(dataTrain,2));
         for featCtr = 1:size(dataTrain,2)
             p(featCtr) = anova1(dataTrain(:,featCtr),grpTrainInd,'off');
@@ -232,21 +232,21 @@ if performSequentialFeatureSelection
         ylabel('CDF value')
     end
     
-    % sort features
+    % Sort features
     [~,featureIdxSortbyP] = sort(p,2);
     
-    % define function for sfs
+    % Define function for sfs
     
-    % subspace discriminant model - TODO: needs to write this as a proper function to enable multiple lines 
-%     Mdl = fitcensemble(xtrain,ytrain,'Method','subspace'); % trained object using subspace discriminant model.
-%     classf = @(xtrain,ytrain,xtest,ytest) ...
-%         sum(~strcmp(ytest,fitcensemble(xtrain,ytrain,'Method','subspace').predictFcn(xtest)));
-
-    % linear discriminant model
+    % subspace discriminant model - TODO: needs to write this as a proper function to enable multiple lines
+    %     Mdl = fitcensemble(xtrain,ytrain,'Method','subspace'); % trained object using subspace discriminant model.
+    %     classf = @(xtrain,ytrain,xtest,ytest) ...
+    %         sum(~strcmp(ytest,fitcensemble(xtrain,ytrain,'Method','subspace').predictFcn(xtest)));
+    
+    % Linear discriminant model
     classf = @(xtrain,ytrain,xtest,ytest) ...
-        sum(~strcmp(ytest,classify(xtest,xtrain,ytrain,'linear'))); 
+        sum(~strcmp(ytest,classify(xtest,xtrain,ytrain,'linear')));
     
-    % sequential feature selection with k-fold cross-validation
+    % Sequential feature selection with k-fold cross-validation
     kfoldCVP = cvpartition(grpTrain,'kfold',crossVal_k);
     if ~isnan(n_sortedFeatsInput)
         featureIdxSortbyP = featureIdxSortbyP(1:n_sortedFeatsInput);
@@ -256,11 +256,11 @@ if performSequentialFeatureSelection
     keyFeats = featureTable.Properties.VariableNames(featCols)'
     
     if plotSFS
-        % evaluate the performance of the selected model with the features
+        % Evaluate the performance of the selected model with the features
         testMCELocal = crossval(classf,featureMat(:,featureIdxSortbyP(fsLocal)),classLabels,'partition',...
             holdoutCVP)/holdoutCVP.TestSize;
         
-        % plot of the cross-validation MCE as a function of the number of top features
+        % Plot of the cross-validation MCE as a function of the number of top features
         figure; plot(historyCV.Crit,'o');
         xlabel('Number of Features');
         ylabel('CV MCE');

@@ -13,7 +13,7 @@
 % featureTable: file-by-feature featureTable with non-feature metadata variables removed.
 % classLabels: file x 1 class labels to feed into the classification task. If multiple multiple variables are specied for classVar then classLabels is a struct where each field contains the labels for that variable.
 
-function [featureTable, classLabels] = filterFeatureTable(featureTable,classVar,n_nonFeatVar,strains2keep,strains2drop,feats2keep,feats2drop)
+function [featureTable, classLabels,filenames] = filterFeatureTable(featureTable,classVar,n_nonFeatVar,strains2keep,strains2drop,feats2keep,feats2drop)
 
 %% process rows (observations) first
 
@@ -55,6 +55,7 @@ else
 end
 
 %% process columns (features) second
+
 % trim table down to retain necessary info
 featureTable = featureTable(:,n_nonFeatVar+1:end); % get full features matrix
 % retain features as specified

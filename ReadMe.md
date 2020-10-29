@@ -48,3 +48,5 @@ All 5 worm dataset is on HD1.
 `appendFeatsToFeatureTable`: appends new features from *newFeatureTable* to the existing *featureTable*.
 `preprocessFeatMat`: pro-processes features matrix with several steps such as dropping features with zero standard deviation or too many NaN's, imputing nan values to global mean, and z-normalising feature matrix.
 `filterFeatureTable`: filters *featureTable* by specified strain and feature requirements before classification tasks. Uses `dropFeats` and `dropStrains`.
+`balanceStrainReps`: subsamples replicates to ensure that all strains are balanced in the number of replicates represented in a classification task.
+`cvpartition_augmented`: divides augmented features up into training and test datasets, so that one entire replicate is held out so it is not at all seen in training.
