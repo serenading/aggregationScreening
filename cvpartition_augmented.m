@@ -39,5 +39,9 @@ assert(nnz(holdoutLogInd) == numel(uniqueStrains)*augFactor);
 % Write logical index into structure akin to cvpartition
 holdoutCVP.training = ~holdoutLogInd;
 holdoutCVP.test = holdoutLogInd;
+holdoutCVP.NumObservations = numel(holdoutLogInd);
+holdoutCVP.TrainSize = nnz(~holdoutLogInd);
+holdoutCVP.TestSize = nnz(holdoutLogInd);
+holdoutCVP.Type = 'holdout';
 
 end
