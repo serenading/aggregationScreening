@@ -1,6 +1,7 @@
 clear
 close all
 
+%% Script probably obsolete.
 % Script clusters Tierpsy feature values in strain x feature format, where
 % each row is a unique strain and each column is one of the 641
 % heritability features that Erik and Loraina sent over in Oct 2020.
